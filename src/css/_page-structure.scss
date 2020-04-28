@@ -1,0 +1,14 @@
+@use "globals";
+
+html,
+body {
+  @include globals.reset;
+  @include globals.maxsize;
+
+  font-family: globals.$font-stack;
+  overflow: hidden;
+}
+
+svg {
+  font-weight: normal;
+}

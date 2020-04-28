@@ -1,0 +1,34 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Trebuchet MS", "Open Sans", "Segoe UI light", "Verdana", "Tahoma", "Helvetica", sans-serif;
+  overflow: hidden;
+}
+
+svg {
+  font-weight: normal;
+}
+
+.link {
+  transition: all 500ms;
+}
+
+.node {
+  transition: all 500ms;
+}
+
+body {
+  background-color: #666;
+}
+
+#chart {
+  background-color: #fff;
+  height: 98vh;
+  left: 1vh;
+  position: fixed;
+  top: 1vh;
+  width: calc(100vw - 2vh);
+}

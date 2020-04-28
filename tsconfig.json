@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "src",
+    "composite": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "incremental": true,
+    "inlineSourceMap": true,
+    "lib": ["esnext.array", "esnext", "es2017", "dom", "es5"],
+    "module": "es2015",
+    "moduleResolution": "node",
+    "removeComments": false,
+    "strict": true,
+    "target": "es2015",
+    "tsBuildInfoFile": ".buildcache/default",
+    "typeRoots": ["./node_modules/@types", "./src/typings"]
+  },
+  "exclude": [
+    "src/**/*.test.ts",
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

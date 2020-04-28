@@ -1,0 +1,42 @@
+$font-stack: "Trebuchet MS", "Open Sans", "Segoe UI light", "Verdana", "Tahoma", "Helvetica", sans-serif;
+
+@mixin disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+}
+
+@mixin fx($dir: row, $wrap: nowrap) {
+  display: flex;
+  flex-direction: $dir;
+  flex-wrap: $wrap;
+}
+
+@mixin fx-center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@mixin fx-stretch {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+@mixin hidden {
+  opacity: 0 !important;
+}
+
+@mixin maxsize {
+  height: 100%;
+  width: 100%;
+}
+
+@mixin reset {
+  margin: 0;
+  padding: 0;
+}
+
+@mixin transition($property: all) {
+  transition: $property 500ms ease-in-out;
+}
