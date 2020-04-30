@@ -247,32 +247,45 @@ export class Sankey {
    * y1 is the bottom y value of link at target node
    */
   private _adjustLinks(): void {
+    // sort: by size then by a-z name
+    this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
+
+    const source = new Map<number, number>();
     const target = new Map<number, number>();
-    this.nodes.forEach((node: TNode) => {
-      let src = this.orient === "horizontal" ? node.y : node.x; 
-      let tgt = 0;
-      node.linksOut.forEach((link: TLink) => {
-        link.width = Math.max(1, this._scale(link.value));
-        if (this.orient === "horizontal") {
-          link.y0 = src + (link.width / 2);
-          src += link.width;
-          if (!target.has(link.nodeOut.id)) {
-            target.set(link.nodeOut.id, link.nodeOut.y);
-          }
-          tgt = target.get(link.nodeOut.id) as number;
-          link.y1 = tgt + (link.width / 2);
-          target.set(link.nodeOut.id, link.y1 + (link.width / 2));
-        } else {
-          link.y0 = src + (link.width / 2);
-          src += link.width;
-          if (!target.has(link.nodeOut.id)) {
-            target.set(link.nodeOut.id, link.nodeOut.x);
-          }
-          tgt = target.get(link.nodeOut.id) as number;
-          link.y1 = tgt + (link.width / 2);
-          target.set(link.nodeOut.id, link.y1 + (link.width / 2)); 
+    this.links.forEach((link: TLink) => {
+      let src = 0, tgt = 0;
+      link.width = Math.max(1, this._scale(link.value));
+      if (this.orient === "horizontal") {
+        if (!source.has(link.nodeIn.id)) {
+          source.set(link.nodeIn.id, link.nodeIn.y);
         }
-      });
+        if (!target.has(link.nodeOut.id)) {
+          target.set(link.nodeOut.id, link.nodeOut.y);
+        }
+
+        src = source.get(link.nodeIn.id) as number;
+        link.y0 = src + (link.width / 2);
+        source.set(link.nodeIn.id, link.y0 + (link.width / 2));
+
+        tgt = target.get(link.nodeOut.id) as number;
+        link.y1 = tgt + (link.width / 2);
+        target.set(link.nodeOut.id, link.y1 + (link.width / 2));
+      } else {
+        if (!source.has(link.nodeIn.id)) {
+          source.set(link.nodeIn.id, link.nodeIn.x);
+        }
+        if (!target.has(link.nodeOut.id)) {
+          target.set(link.nodeOut.id, link.nodeOut.x);
+        }
+
+        src = source.get(link.nodeIn.id) as number;
+        link.y0 = src + (link.width / 2);
+        source.set(link.nodeIn.id, src + link.width); 
+
+        tgt = target.get(link.nodeOut.id) as number;
+        link.y1 = tgt + (link.width / 2);
+        target.set(link.nodeOut.id, link.y1 + (link.width / 2)); 
+      }
     });
   }
 
@@ -430,13 +443,7 @@ export class Sankey {
       }
     });
 
-    // sort to order by layer and node size
-    this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value);
-
-    // for each node, sort links descending
-    this.nodes.forEach((node: TNode) => {
-      node.linksOut.sort((a, b) => b.value - a.value);
-      node.linksIn.sort((a, b) => b.value - a.value);
-    });
+    // sort: by layer asc then by size then by a-z name
+    this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));
   }
 }
