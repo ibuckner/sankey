@@ -34,6 +34,7 @@
   "homepage": "https://github.com/ibuckner/sankey#readme",
   "dependencies": {
     "@buckneri/spline": "^0.1.3",
+    "d3-drag": "^1.2.5",
     "d3-format": "^1.4.4",
     "d3-path": "^1.0.9",
     "d3-scale": "^3.2.1",

@@ -4,6 +4,7 @@ import { scaleLinear } from "d3-scale";
 import { transition } from "d3-transition";
 import { format } from "d3-format";
 import { linkHorizontal, linkVertical } from "d3-shape";
+import { drag } from "d3-drag";
 import { svg } from "../node_modules/@buckneri/spline/dist";
 
 const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
@@ -14,6 +15,7 @@ function formatNumber(v: number): string {
 export class Sankey {
   public container: HTMLElement = document.querySelector("body") as HTMLElement;
   public h: number = 200;
+  public linkGenerator: Function = () => true;
   public links: TLink[] = [];
   public margin: TMargin = { bottom: 20, left: 20, right: 30, top: 20 };
   public nodes: TNode[] = [];
@@ -76,30 +78,31 @@ export class Sankey {
   }
 
   public draw(): Sankey {
-    svg(this.container, {
+    this.drawCanvas();
+    this.drawLinks();
+    this.drawNodes();
+    return this;
+  }
+
+  public drawCanvas(): any {
+    const sg = svg(this.container, {
       height: this.h, 
       margin: this.margin,
       width: this.w
     });
-
-    this.drawLinks();
-    this.drawNodes();
-
-    return this;
+    sg.on("click", () => this.clearSelection());
   }
 
   public drawLinks(): any {
     const canvas = select(this.container).select(".canvas");
-
-    let linkGen: Function;
     if (this.orient === "horizontal") {
-      linkGen = linkHorizontal()
+      this.linkGenerator = linkHorizontal()
         .source((d: any) => [d.nodeIn.x + this.size, d.y0])
         .target((d: any) => [d.nodeOut.x, d.y1])
         .x((d: any) => d[0])
         .y((d: any) => d[1]);
     } else {
-      linkGen = linkVertical()
+      this.linkGenerator = linkVertical()
         .source((d: any) => [d.y0, d.nodeIn.y + this.size])
         .target((d: any) => [d.y1, d.nodeOut.y])
         .x((d: any) => d[0])
@@ -121,16 +124,17 @@ export class Sankey {
         .attr("stroke-width", (d: TLink) => d.width)
         .attr("fill", "none");
 
-    path.append("title")
+    linkCollection.append("title")
       .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
 
     const t: any = transition().duration(600);
     path.transition(t).delay(1000)
       // @ts-ignore
-      .attr("d", d => linkGen(d));
+      .attr("d", d => this.linkGenerator(d));
   }
 
   public drawNodes(): any {
+    const self = this;
     const canvas = select(this.container).select(".canvas");
 
     const nodes = canvas.append("g")
@@ -140,16 +144,22 @@ export class Sankey {
         .attr("class", "node")
         .attr("transform", d => {
           return this.orient === "horizontal"
-            ? `translate(${d.x} ${-this._scale(d.value)})`
-            : `translate(${-this._scale(d.value)} ${d.y})`;
+            ? `translate(${d.x},${-d.h})`
+            : `translate(${-d.w},${d.y})`;
         })
-        .on("click", (d: any) => this.nodeClickHandler(event.currentTarget));
+        .call(
+          // @ts-ignore
+          drag().clickDistance(1)
+            .on("start", dragstart)
+            .on("drag", dragmove as any)
+            .on("end", dragend))
+        .on("click", () => this.nodeClickHandler(event.currentTarget));
 
     const rect = nodes.append("rect")
       .attr("class", "node")
-      .attr("height", d => (this.orient === "horizontal" ? this._scale(d.value) : this.size) + "px")
-      .attr("width", d => (this.orient === "horizontal" ? this.size : this._scale(d.value)) + "px")
-      .attr("fill", d => d.fill)
+      .attr("height", (d: TNode) => (this.orient === "horizontal" ? this._scale(d.value) : this.size) + "px")
+      .attr("width", (d: TNode) => (this.orient === "horizontal" ? this.size : this._scale(d.value)) + "px")
+      .attr("fill", (d: TNode) => d.fill)
       .attr("x", 0)
       .attr("y", 0)
       .style("opacity", 0);
@@ -159,9 +169,9 @@ export class Sankey {
       .style("opacity", 1);
 
     nodes.transition(t1)
-      .attr("transform", d => `translate(${d.x} ${d.y})`);
+      .attr("transform", (d: TNode) => `translate(${d.x} ${d.y})`);
     
-    rect.append("title")
+    nodes.append("title")
       .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
 
     const outerLabel = nodes.append("text")
@@ -200,6 +210,60 @@ export class Sankey {
         .attr("y", (d: any) => this.size / 2)
         .attr("text-anchor", "middle")
         .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    }
+
+    function dragstart(d: any) {
+      if (!d.__x) { d.__x = event.x; }
+      if (!d.__y) { d.__y = event.y; }
+      if (!d.__x0) { d.__x0 = d.x; }
+      if (!d.__y0) { d.__y0 = d.y; }
+      if (!d.__x1) { d.__x1 = d.x + d.w; }
+      if (!d.__y1) { d.__y1 = d.y + d.h; }
+    }
+
+    function dragmove(this: SVGGElement, d: any) {
+      select(this)
+        .attr("transform", function (d: any) {
+          const dx = event.x - d.__x;
+          const dy = event.y - d.__y;
+          // x direction
+          d.x0 = d.__x0 + dx;
+          d.x1 = d.__x1 + dx;
+          if (d.x0 < 0) {
+            d.x0 = 0;
+            d.x1 = self.size;
+          }
+          if (d.x1 > self.w) {
+            d.x0 = self.w - self.size;
+            d.x1 = self.w;
+          }
+          // y direction
+          d.y0 = d.__y0 + dy;
+          d.y1 = d.__y1 + dy;
+          if (d.y0 < 0) {
+            d.y0 = 0;
+            d.y1 = d.__y1 - d.__y0;
+          }
+          if (d.y1 > self.h) {
+            d.y0 = self.h - (d.__y1 - d.__y0);
+            d.y1 = self.h;
+          }
+          
+          return `translate(${d.x0}, ${d.y0})`;
+        });
+  
+      /*self._adjustLinks();
+      selectAll("path.link")
+        .attr("d", d => self.linkGenerator(d));*/
+    }
+
+    function dragend(d: any) {
+      delete d.__x;
+      delete d.__y;
+      delete d.__x0;
+      delete d.__x1;
+      delete d.__y0;
+      delete d.__y1;
     }
   }
 
@@ -252,46 +316,29 @@ export class Sankey {
 
     const source = new Map<number, number>();
     const target = new Map<number, number>();
+
     this.links.forEach((link: TLink) => {
       let src = 0, tgt = 0;
-      link.width = Math.max(1, this._scale(link.value));
-      if (this.orient === "horizontal") {
-        if (!source.has(link.nodeIn.id)) {
-          source.set(link.nodeIn.id, link.nodeIn.y);
-        }
-        if (!target.has(link.nodeOut.id)) {
-          target.set(link.nodeOut.id, link.nodeOut.y);
-        }
-
-        src = source.get(link.nodeIn.id) as number;
-        link.y0 = src + (link.width / 2);
-        source.set(link.nodeIn.id, link.y0 + (link.width / 2));
-
-        tgt = target.get(link.nodeOut.id) as number;
-        link.y1 = tgt + (link.width / 2);
-        target.set(link.nodeOut.id, link.y1 + (link.width / 2));
-      } else {
-        if (!source.has(link.nodeIn.id)) {
-          source.set(link.nodeIn.id, link.nodeIn.x);
-        }
-        if (!target.has(link.nodeOut.id)) {
-          target.set(link.nodeOut.id, link.nodeOut.x);
-        }
-
-        src = source.get(link.nodeIn.id) as number;
-        link.y0 = src + (link.width / 2);
-        source.set(link.nodeIn.id, src + link.width); 
-
-        tgt = target.get(link.nodeOut.id) as number;
-        link.y1 = tgt + (link.width / 2);
-        target.set(link.nodeOut.id, link.y1 + (link.width / 2)); 
+      link.width = Math.max(1, this._scale(link.value));   
+      if (!source.has(link.nodeIn.id)) {
+        source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
       }
+      if (!target.has(link.nodeOut.id)) {
+        target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
+      }
+      src = source.get(link.nodeIn.id) as number;
+      link.y0 = src + (link.width / 2);
+      tgt = target.get(link.nodeOut.id) as number;
+      link.y1 = tgt + (link.width / 2);
+      source.set(link.nodeIn.id, link.y0 + (link.width / 2));
+      target.set(link.nodeOut.id, link.y1 + (link.width / 2));
     });
   }
 
   private _adjustNodesX(): void {
     if (this.orient === "horizontal") {
       this.nodes.forEach((node: TNode) => {
+        node.h = this._scale(node.value);
         node.x = node.layer * this._stepX[0];
         if (node.x >= this.rw) {
           node.x -= this.size;
@@ -302,13 +349,14 @@ export class Sankey {
     } else {
       let x = 0, layer = 0;
       this.nodes.forEach((node: TNode) => {
+        node.w = this._scale(node.value);
         if (layer === node.layer) {
           node.x = x;
-          x += this._scale(node.value) + this.padding;
+          x += node.w+ this.padding;
         } else {
           layer = node.layer;
           node.x = 0;
-          x = this._scale(node.value) + this.padding;
+          x = node.w + this.padding;
         }
       });
     }
@@ -320,11 +368,11 @@ export class Sankey {
       this.nodes.forEach((node: TNode) => {
         if (layer === node.layer) {
           node.y = y;
-          y += this._scale(node.value) + this.padding;
+          y += node.h + this.padding;
         } else {
           layer = node.layer;
           node.y = 0;
-          y = this._scale(node.value) + this.padding;
+          y = node.h + this.padding;
         }
       });
     } else {
@@ -372,12 +420,14 @@ export class Sankey {
     nodes.forEach((node: TNode, i: number) => {
       this.nodes.push({
         fill: node.fill,
+        h: this.orient === "horizontal" ? 0 : this.size,
         id: i,
         layer: -1,
         linksIn: [],
         linksOut: [],
         name: node.name,
         value: node.value,
+        w: this.orient === "horizontal" ? this.size : 0,
         x: 0,
         y: 0
       });

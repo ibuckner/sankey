@@ -38,7 +38,7 @@ const App = function() {
       links: json.links,
       margin: { bottom: 20, left: 20, right: 30, top: 20 },
       nodes: json.nodes,
-      orient: "vertical",
+      orient: document.getElementById("OrientLTR").checked ? "horizontal" : "vertical",
       padding: 5,
       size: 30
     });

@@ -779,6 +779,17 @@ var chart = (function (exports) {
     return this;
   }
 
+  function customEvent(event1, listener, that, args) {
+    var event0 = event;
+    event1.sourceEvent = event;
+    event = event1;
+    try {
+      return listener.apply(that, args);
+    } finally {
+      event = event0;
+    }
+  }
+
   function dispatchEvent(node, type, params) {
     var window = defaultView(node),
         event = window.CustomEvent;
@@ -864,10 +875,48 @@ var chart = (function (exports) {
         : new Selection([[selector]], root);
   }
 
+  function sourceEvent() {
+    var current = event, source;
+    while (source = current.sourceEvent) current = source;
+    return current;
+  }
+
+  function point(node, event) {
+    var svg = node.ownerSVGElement || node;
+
+    if (svg.createSVGPoint) {
+      var point = svg.createSVGPoint();
+      point.x = event.clientX, point.y = event.clientY;
+      point = point.matrixTransform(node.getScreenCTM().inverse());
+      return [point.x, point.y];
+    }
+
+    var rect = node.getBoundingClientRect();
+    return [event.clientX - rect.left - node.clientLeft, event.clientY - rect.top - node.clientTop];
+  }
+
+  function mouse(node) {
+    var event = sourceEvent();
+    if (event.changedTouches) event = event.changedTouches[0];
+    return point(node, event);
+  }
+
   function selectAll(selector) {
     return typeof selector === "string"
         ? new Selection([document.querySelectorAll(selector)], [document.documentElement])
         : new Selection([selector == null ? [] : selector], root);
+  }
+
+  function touch(node, touches, identifier) {
+    if (arguments.length < 3) identifier = touches, touches = sourceEvent().changedTouches;
+
+    for (var i = 0, n = touches ? touches.length : 0, touch; i < n; ++i) {
+      if ((touch = touches[i]).identifier === identifier) {
+        return point(node, touch);
+      }
+    }
+
+    return null;
   }
 
   function ascending$1(a, b) {
@@ -3474,6 +3523,226 @@ var chart = (function (exports) {
     return link(curveVertical);
   }
 
+  function nopropagation() {
+    event.stopImmediatePropagation();
+  }
+
+  function noevent() {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  function nodrag(view) {
+    var root = view.document.documentElement,
+        selection = select(view).on("dragstart.drag", noevent, true);
+    if ("onselectstart" in root) {
+      selection.on("selectstart.drag", noevent, true);
+    } else {
+      root.__noselect = root.style.MozUserSelect;
+      root.style.MozUserSelect = "none";
+    }
+  }
+
+  function yesdrag(view, noclick) {
+    var root = view.document.documentElement,
+        selection = select(view).on("dragstart.drag", null);
+    if (noclick) {
+      selection.on("click.drag", noevent, true);
+      setTimeout(function() { selection.on("click.drag", null); }, 0);
+    }
+    if ("onselectstart" in root) {
+      selection.on("selectstart.drag", null);
+    } else {
+      root.style.MozUserSelect = root.__noselect;
+      delete root.__noselect;
+    }
+  }
+
+  function constant$4(x) {
+    return function() {
+      return x;
+    };
+  }
+
+  function DragEvent(target, type, subject, id, active, x, y, dx, dy, dispatch) {
+    this.target = target;
+    this.type = type;
+    this.subject = subject;
+    this.identifier = id;
+    this.active = active;
+    this.x = x;
+    this.y = y;
+    this.dx = dx;
+    this.dy = dy;
+    this._ = dispatch;
+  }
+
+  DragEvent.prototype.on = function() {
+    var value = this._.on.apply(this._, arguments);
+    return value === this._ ? this : value;
+  };
+
+  // Ignore right-click, since that should open the context menu.
+  function defaultFilter() {
+    return !event.ctrlKey && !event.button;
+  }
+
+  function defaultContainer() {
+    return this.parentNode;
+  }
+
+  function defaultSubject(d) {
+    return d == null ? {x: event.x, y: event.y} : d;
+  }
+
+  function defaultTouchable() {
+    return navigator.maxTouchPoints || ("ontouchstart" in this);
+  }
+
+  function drag() {
+    var filter = defaultFilter,
+        container = defaultContainer,
+        subject = defaultSubject,
+        touchable = defaultTouchable,
+        gestures = {},
+        listeners = dispatch("start", "drag", "end"),
+        active = 0,
+        mousedownx,
+        mousedowny,
+        mousemoving,
+        touchending,
+        clickDistance2 = 0;
+
+    function drag(selection) {
+      selection
+          .on("mousedown.drag", mousedowned)
+        .filter(touchable)
+          .on("touchstart.drag", touchstarted)
+          .on("touchmove.drag", touchmoved)
+          .on("touchend.drag touchcancel.drag", touchended)
+          .style("touch-action", "none")
+          .style("-webkit-tap-highlight-color", "rgba(0,0,0,0)");
+    }
+
+    function mousedowned() {
+      if (touchending || !filter.apply(this, arguments)) return;
+      var gesture = beforestart("mouse", container.apply(this, arguments), mouse, this, arguments);
+      if (!gesture) return;
+      select(event.view).on("mousemove.drag", mousemoved, true).on("mouseup.drag", mouseupped, true);
+      nodrag(event.view);
+      nopropagation();
+      mousemoving = false;
+      mousedownx = event.clientX;
+      mousedowny = event.clientY;
+      gesture("start");
+    }
+
+    function mousemoved() {
+      noevent();
+      if (!mousemoving) {
+        var dx = event.clientX - mousedownx, dy = event.clientY - mousedowny;
+        mousemoving = dx * dx + dy * dy > clickDistance2;
+      }
+      gestures.mouse("drag");
+    }
+
+    function mouseupped() {
+      select(event.view).on("mousemove.drag mouseup.drag", null);
+      yesdrag(event.view, mousemoving);
+      noevent();
+      gestures.mouse("end");
+    }
+
+    function touchstarted() {
+      if (!filter.apply(this, arguments)) return;
+      var touches = event.changedTouches,
+          c = container.apply(this, arguments),
+          n = touches.length, i, gesture;
+
+      for (i = 0; i < n; ++i) {
+        if (gesture = beforestart(touches[i].identifier, c, touch, this, arguments)) {
+          nopropagation();
+          gesture("start");
+        }
+      }
+    }
+
+    function touchmoved() {
+      var touches = event.changedTouches,
+          n = touches.length, i, gesture;
+
+      for (i = 0; i < n; ++i) {
+        if (gesture = gestures[touches[i].identifier]) {
+          noevent();
+          gesture("drag");
+        }
+      }
+    }
+
+    function touchended() {
+      var touches = event.changedTouches,
+          n = touches.length, i, gesture;
+
+      if (touchending) clearTimeout(touchending);
+      touchending = setTimeout(function() { touchending = null; }, 500); // Ghost clicks are delayed!
+      for (i = 0; i < n; ++i) {
+        if (gesture = gestures[touches[i].identifier]) {
+          nopropagation();
+          gesture("end");
+        }
+      }
+    }
+
+    function beforestart(id, container, point, that, args) {
+      var p = point(container, id), s, dx, dy,
+          sublisteners = listeners.copy();
+
+      if (!customEvent(new DragEvent(drag, "beforestart", s, id, active, p[0], p[1], 0, 0, sublisteners), function() {
+        if ((event.subject = s = subject.apply(that, args)) == null) return false;
+        dx = s.x - p[0] || 0;
+        dy = s.y - p[1] || 0;
+        return true;
+      })) return;
+
+      return function gesture(type) {
+        var p0 = p, n;
+        switch (type) {
+          case "start": gestures[id] = gesture, n = active++; break;
+          case "end": delete gestures[id], --active; // nobreak
+          case "drag": p = point(container, id), n = active; break;
+        }
+        customEvent(new DragEvent(drag, type, s, id, n, p[0] + dx, p[1] + dy, p[0] - p0[0], p[1] - p0[1], sublisteners), sublisteners.apply, sublisteners, [type, that, args]);
+      };
+    }
+
+    drag.filter = function(_) {
+      return arguments.length ? (filter = typeof _ === "function" ? _ : constant$4(!!_), drag) : filter;
+    };
+
+    drag.container = function(_) {
+      return arguments.length ? (container = typeof _ === "function" ? _ : constant$4(_), drag) : container;
+    };
+
+    drag.subject = function(_) {
+      return arguments.length ? (subject = typeof _ === "function" ? _ : constant$4(_), drag) : subject;
+    };
+
+    drag.touchable = function(_) {
+      return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$4(!!_), drag) : touchable;
+    };
+
+    drag.on = function() {
+      var value = listeners.on.apply(listeners, arguments);
+      return value === listeners ? drag : value;
+    };
+
+    drag.clickDistance = function(_) {
+      return arguments.length ? (clickDistance2 = (_ = +_) * _, drag) : Math.sqrt(clickDistance2);
+    };
+
+    return drag;
+  }
+
   var xhtml$1 = "http://www.w3.org/1999/xhtml";
 
   var namespaces$1 = {
@@ -3605,7 +3874,7 @@ var chart = (function (exports) {
     querySelectorAll: function(selector) { return this._parent.querySelectorAll(selector); }
   };
 
-  function constant$4(x) {
+  function constant$5(x) {
     return function() {
       return x;
     };
@@ -3694,7 +3963,7 @@ var chart = (function (exports) {
         parents = this._parents,
         groups = this._groups;
 
-    if (typeof value !== "function") value = constant$4(value);
+    if (typeof value !== "function") value = constant$5(value);
 
     for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
       var parent = parents[j],
@@ -4390,6 +4659,7 @@ var chart = (function (exports) {
       constructor(options) {
           this.container = document.querySelector("body");
           this.h = 200;
+          this.linkGenerator = () => true;
           this.links = [];
           this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
           this.nodes = [];
@@ -4439,27 +4709,30 @@ var chart = (function (exports) {
           return this;
       }
       draw() {
-          svg(this.container, {
-              height: this.h,
-              margin: this.margin,
-              width: this.w
-          });
+          this.drawCanvas();
           this.drawLinks();
           this.drawNodes();
           return this;
       }
+      drawCanvas() {
+          const sg = svg(this.container, {
+              height: this.h,
+              margin: this.margin,
+              width: this.w
+          });
+          sg.on("click", () => this.clearSelection());
+      }
       drawLinks() {
           const canvas = select(this.container).select(".canvas");
-          let linkGen;
           if (this.orient === "horizontal") {
-              linkGen = linkHorizontal()
+              this.linkGenerator = linkHorizontal()
                   .source((d) => [d.nodeIn.x + this.size, d.y0])
                   .target((d) => [d.nodeOut.x, d.y1])
                   .x((d) => d[0])
                   .y((d) => d[1]);
           }
           else {
-              linkGen = linkVertical()
+              this.linkGenerator = linkVertical()
                   .source((d) => [d.y0, d.nodeIn.y + this.size])
                   .target((d) => [d.y1, d.nodeOut.y])
                   .x((d) => d[0])
@@ -4478,14 +4751,15 @@ var chart = (function (exports) {
               .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
               .attr("stroke-width", (d) => d.width)
               .attr("fill", "none");
-          path.append("title")
+          linkCollection.append("title")
               .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
           const t = transition().duration(600);
           path.transition(t).delay(1000)
               // @ts-ignore
-              .attr("d", d => linkGen(d));
+              .attr("d", d => this.linkGenerator(d));
       }
       drawNodes() {
+          const self = this;
           const canvas = select(this.container).select(".canvas");
           const nodes = canvas.append("g")
               .selectAll("g.node")
@@ -4494,15 +4768,21 @@ var chart = (function (exports) {
               .attr("class", "node")
               .attr("transform", d => {
               return this.orient === "horizontal"
-                  ? `translate(${d.x} ${-this._scale(d.value)})`
-                  : `translate(${-this._scale(d.value)} ${d.y})`;
+                  ? `translate(${d.x},${-d.h})`
+                  : `translate(${-d.w},${d.y})`;
           })
-              .on("click", (d) => this.nodeClickHandler(event.currentTarget));
+              .call(
+          // @ts-ignore
+          drag().clickDistance(1)
+              .on("start", dragstart)
+              .on("drag", dragmove)
+              .on("end", dragend))
+              .on("click", () => this.nodeClickHandler(event.currentTarget));
           const rect = nodes.append("rect")
               .attr("class", "node")
-              .attr("height", d => (this.orient === "horizontal" ? this._scale(d.value) : this.size) + "px")
-              .attr("width", d => (this.orient === "horizontal" ? this.size : this._scale(d.value)) + "px")
-              .attr("fill", d => d.fill)
+              .attr("height", (d) => (this.orient === "horizontal" ? this._scale(d.value) : this.size) + "px")
+              .attr("width", (d) => (this.orient === "horizontal" ? this.size : this._scale(d.value)) + "px")
+              .attr("fill", (d) => d.fill)
               .attr("x", 0)
               .attr("y", 0)
               .style("opacity", 0);
@@ -4510,8 +4790,8 @@ var chart = (function (exports) {
           rect.transition(t1).delay((d) => d.layer * 100)
               .style("opacity", 1);
           nodes.transition(t1)
-              .attr("transform", d => `translate(${d.x} ${d.y})`);
-          rect.append("title")
+              .attr("transform", (d) => `translate(${d.x} ${d.y})`);
+          nodes.append("title")
               .text((d) => `${d.name} - ${formatNumber(d.value)}`);
           const outerLabel = nodes.append("text")
               .attr("class", "node-label")
@@ -4548,6 +4828,67 @@ var chart = (function (exports) {
                   .attr("y", (d) => this.size / 2)
                   .attr("text-anchor", "middle")
                   .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+          }
+          function dragstart(d) {
+              if (!d.__x) {
+                  d.__x = event.x;
+              }
+              if (!d.__y) {
+                  d.__y = event.y;
+              }
+              if (!d.__x0) {
+                  d.__x0 = d.x;
+              }
+              if (!d.__y0) {
+                  d.__y0 = d.y;
+              }
+              if (!d.__x1) {
+                  d.__x1 = d.x + d.w;
+              }
+              if (!d.__y1) {
+                  d.__y1 = d.y + d.h;
+              }
+          }
+          function dragmove(d) {
+              select(this)
+                  .attr("transform", function (d) {
+                  const dx = event.x - d.__x;
+                  const dy = event.y - d.__y;
+                  // x direction
+                  d.x0 = d.__x0 + dx;
+                  d.x1 = d.__x1 + dx;
+                  if (d.x0 < 0) {
+                      d.x0 = 0;
+                      d.x1 = self.size;
+                  }
+                  if (d.x1 > self.w) {
+                      d.x0 = self.w - self.size;
+                      d.x1 = self.w;
+                  }
+                  // y direction
+                  d.y0 = d.__y0 + dy;
+                  d.y1 = d.__y1 + dy;
+                  if (d.y0 < 0) {
+                      d.y0 = 0;
+                      d.y1 = d.__y1 - d.__y0;
+                  }
+                  if (d.y1 > self.h) {
+                      d.y0 = self.h - (d.__y1 - d.__y0);
+                      d.y1 = self.h;
+                  }
+                  return `translate(${d.x0}, ${d.y0})`;
+              });
+              /*self._adjustLinks();
+              selectAll("path.link")
+                .attr("d", d => self.linkGenerator(d));*/
+          }
+          function dragend(d) {
+              delete d.__x;
+              delete d.__y;
+              delete d.__x0;
+              delete d.__x1;
+              delete d.__y0;
+              delete d.__y1;
           }
       }
       initialise() {
@@ -4596,39 +4937,24 @@ var chart = (function (exports) {
           this.links.forEach((link) => {
               let src = 0, tgt = 0;
               link.width = Math.max(1, this._scale(link.value));
-              if (this.orient === "horizontal") {
-                  if (!source.has(link.nodeIn.id)) {
-                      source.set(link.nodeIn.id, link.nodeIn.y);
-                  }
-                  if (!target.has(link.nodeOut.id)) {
-                      target.set(link.nodeOut.id, link.nodeOut.y);
-                  }
-                  src = source.get(link.nodeIn.id);
-                  link.y0 = src + (link.width / 2);
-                  source.set(link.nodeIn.id, link.y0 + (link.width / 2));
-                  tgt = target.get(link.nodeOut.id);
-                  link.y1 = tgt + (link.width / 2);
-                  target.set(link.nodeOut.id, link.y1 + (link.width / 2));
+              if (!source.has(link.nodeIn.id)) {
+                  source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
               }
-              else {
-                  if (!source.has(link.nodeIn.id)) {
-                      source.set(link.nodeIn.id, link.nodeIn.x);
-                  }
-                  if (!target.has(link.nodeOut.id)) {
-                      target.set(link.nodeOut.id, link.nodeOut.x);
-                  }
-                  src = source.get(link.nodeIn.id);
-                  link.y0 = src + (link.width / 2);
-                  source.set(link.nodeIn.id, src + link.width);
-                  tgt = target.get(link.nodeOut.id);
-                  link.y1 = tgt + (link.width / 2);
-                  target.set(link.nodeOut.id, link.y1 + (link.width / 2));
+              if (!target.has(link.nodeOut.id)) {
+                  target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
               }
+              src = source.get(link.nodeIn.id);
+              link.y0 = src + (link.width / 2);
+              tgt = target.get(link.nodeOut.id);
+              link.y1 = tgt + (link.width / 2);
+              source.set(link.nodeIn.id, link.y0 + (link.width / 2));
+              target.set(link.nodeOut.id, link.y1 + (link.width / 2));
           });
       }
       _adjustNodesX() {
           if (this.orient === "horizontal") {
               this.nodes.forEach((node) => {
+                  node.h = this._scale(node.value);
                   node.x = node.layer * this._stepX[0];
                   if (node.x >= this.rw) {
                       node.x -= this.size;
@@ -4641,14 +4967,15 @@ var chart = (function (exports) {
           else {
               let x = 0, layer = 0;
               this.nodes.forEach((node) => {
+                  node.w = this._scale(node.value);
                   if (layer === node.layer) {
                       node.x = x;
-                      x += this._scale(node.value) + this.padding;
+                      x += node.w + this.padding;
                   }
                   else {
                       layer = node.layer;
                       node.x = 0;
-                      x = this._scale(node.value) + this.padding;
+                      x = node.w + this.padding;
                   }
               });
           }
@@ -4659,12 +4986,12 @@ var chart = (function (exports) {
               this.nodes.forEach((node) => {
                   if (layer === node.layer) {
                       node.y = y;
-                      y += this._scale(node.value) + this.padding;
+                      y += node.h + this.padding;
                   }
                   else {
                       layer = node.layer;
                       node.y = 0;
-                      y = this._scale(node.value) + this.padding;
+                      y = node.h + this.padding;
                   }
               });
           }
@@ -4712,12 +5039,14 @@ var chart = (function (exports) {
           nodes.forEach((node, i) => {
               this.nodes.push({
                   fill: node.fill,
+                  h: this.orient === "horizontal" ? 0 : this.size,
                   id: i,
                   layer: -1,
                   linksIn: [],
                   linksOut: [],
                   name: node.name,
                   value: node.value,
+                  w: this.orient === "horizontal" ? this.size : 0,
                   x: 0,
                   y: 0
               });
