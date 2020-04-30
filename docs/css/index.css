@@ -13,15 +13,88 @@ svg {
 }
 
 .link {
+  stroke-opacity: 0.3;
   transition: all 500ms;
+}
+
+.link:hover {
+  cursor: pointer;
+  stroke-opacity: 0.7 !important;
+}
+
+.link.selected {
+  stroke-opacity: 1 !important;
 }
 
 .node {
   transition: all 500ms;
 }
 
-body {
-  background-color: #666;
+.node:hover {
+  cursor: pointer;
+}
+
+rect {
+  shape-rendering: crispEdges;
+}
+
+text {
+  user-select: none;
+}
+
+select {
+  direction: rtl;
+  height: 1.5em;
+  width: 130px;
+}
+
+input:hover,
+select:hover,
+option:hover {
+  cursor: pointer;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  transition: all 500ms ease-in-out;
+  background-color: #fff;
+  line-height: 26px;
+  min-width: 220px;
+  padding: 15px;
+  position: fixed;
+  right: 0;
+  top: 26px;
+  width: 25%;
+  z-index: 600000;
+}
+
+.menu.ready {
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+  transform: translateX(100%);
+}
+
+.menu-button {
+  background-color: #fff;
+  color: #009;
+  cursor: pointer;
+  font-weight: bold;
+  position: fixed;
+  right: 5;
+  top: 5;
+  user-select: none;
+}
+
+.panel-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.3em;
 }
 
 #chart {

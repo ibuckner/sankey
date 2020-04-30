@@ -1,10 +1,18 @@
 import type { TLink, TMargin, TNode, TOrientation, TSankeyOptions } from "./typings";
-import { select } from "d3-selection";
+import { event, select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
 import { transition } from "d3-transition";
+import { format } from "d3-format";
+import { linkHorizontal, linkVertical } from "d3-shape";
+import { svg } from "../node_modules/@buckneri/spline/dist";
+
+const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
+function formatNumber(v: number): string {
+	return v < 1 ? format2(v) : v < 10 ? format1(v) : format0(v);
+}
 
 export class Sankey {
-  public container: Element = document.querySelector("body") as Element;
+  public container: HTMLElement = document.querySelector("body") as HTMLElement;
   public h: number = 200;
   public links: TLink[] = [];
   public margin: TMargin = { bottom: 20, left: 20, right: 30, top: 20 };
@@ -47,43 +55,83 @@ export class Sankey {
     if (options.orient !== undefined) {
       this.orient = options.orient;
     }
+    
+    this.data(options.nodes, options.links)
+        .initialise();
+  }
 
-    this._initNodeLink(options.nodes, options.links);
-    this._nodeValueLayer();
-    this._calculations();
-    this._adjustNodesX();
-    this._adjustNodesY();
+  public data(nodes: TNode[], links: TLink[]): Sankey {
+    this._initNodeLink(nodes, links);
+    return this;
+  }
+
+  public clear(): Sankey {
+    select(this.container).select("svg").remove();
+    return this;
+  }
+
+  public clearSelection(): Sankey {
+    selectAll(".selected").classed("selected", false);
+    return this;
   }
 
   public draw(): Sankey {
-    const svg = select(this.container).append("svg")
-      .attr("height", "100%")
-      .attr("width", "100%")
-      .attr("viewBox", `0 0 ${this.w} ${this.h}`);
+    svg(this.container, {
+      height: this.h, 
+      margin: this.margin,
+      width: this.w
+    });
 
-    const defs =  svg.append("defs");
+    this.drawLinks();
+    this.drawNodes();
 
-    const clip: any = defs.append("clipPath")
-      .attr("clipPathUnits", "userSpaceOnUse")
-      .attr("id", "clipcanvas");
+    return this;
+  }
 
-    const r: any = clip.append("rect")
-      .attr("height", this.rh)
-      .attr("width", this.rw)
-      .attr("x", 0)
-      .attr("y", 0); 
+  public drawLinks(): any {
+    const canvas = select(this.container).select(".canvas");
 
-    const canvas = svg.append("g")
-      .attr("class", "canvas")
-      .attr("transform", `translate(${this.margin.left},${this.margin.top})`)
-      .attr("clip-path", `url(#clipcanvas)`);
+    let linkGen: Function;
+    if (this.orient === "horizontal") {
+      linkGen = linkHorizontal()
+        .source((d: any) => [d.nodeIn.x + this.size, d.y0])
+        .target((d: any) => [d.nodeOut.x, d.y1])
+        .x((d: any) => d[0])
+        .y((d: any) => d[1]);
+    } else {
+      linkGen = linkVertical()
+        .source((d: any) => [d.y0, d.nodeIn.y + this.size])
+        .target((d: any) => [d.y1, d.nodeOut.y])
+        .x((d: any) => d[0])
+        .y((d: any) => d[1]);
+    }
 
-    canvas.append("rect")
-      .attr("height", this.rh)
-      .attr("width", this.rw)
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("fill", "#ccc");
+    const linkCollection = canvas.append("g")
+      .selectAll("g")
+      .data(this.links)
+      .enter()
+      .append("g")
+        .attr("class", "link")
+        .on("click", (d: TLink) => this.linkClickHandler(event.target));
+
+    const path = linkCollection
+      .append("path")
+        .attr("class", "link")
+        .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
+        .attr("stroke-width", (d: TLink) => d.width)
+        .attr("fill", "none");
+
+    path.append("title")
+      .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
+
+    const t: any = transition().duration(600);
+    path.transition(t).delay(1000)
+      // @ts-ignore
+      .attr("d", d => linkGen(d));
+  }
+
+  public drawNodes(): any {
+    const canvas = select(this.container).select(".canvas");
 
     const nodes = canvas.append("g")
       .selectAll("g.node")
@@ -94,7 +142,8 @@ export class Sankey {
           return this.orient === "horizontal"
             ? `translate(${d.x} ${-this._scale(d.value)})`
             : `translate(${-this._scale(d.value)} ${d.y})`;
-        });
+        })
+        .on("click", (d: any) => this.nodeClickHandler(event.currentTarget));
 
     const rect = nodes.append("rect")
       .attr("class", "node")
@@ -113,8 +162,76 @@ export class Sankey {
       .attr("transform", d => `translate(${d.x} ${d.y})`);
     
     rect.append("title")
-      .text((d: any) => `${d.name} - ${d.value}`);
+      .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
 
+    const outerLabel = nodes.append("text")
+      .attr("class", "node-label")
+      .attr("dy", "0.35em");
+
+    if (this.orient === "horizontal") {
+      outerLabel
+        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.size + 6 : -6)
+        .attr("y", (d: any) => this._scale(d.value) / 2)
+        .attr("text-anchor", (d: any) => d.x + this.size > this.rw / 2 ? "end" : "start")
+        .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
+        .text((d: any) => d.name);
+    } else {
+      outerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.size + 10 : - 10)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
+    }
+
+    const innerLabel = nodes.append("text")
+    .attr("class", "node-label")
+    .attr("dy", "0.35em");
+
+    if (this.orient === "horizontal") {
+      innerLabel
+        .attr("x", (d: any) => -this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.size / 2)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(270)")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    } else {
+      innerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.size / 2)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    }
+  }
+
+  public initialise(): Sankey {
+    this._nodeValueLayer();
+    this._calculations();
+    this._adjustNodesX();
+    this._adjustNodesY();
+    this._adjustLinks();
+    return this;
+  }
+
+  public linkClickHandler(el: Element) {
+    event.stopPropagation();
+    this.clearSelection();
+    select(el).classed("selected", true);
+  }
+
+  public nodeClickHandler(el: Element) {
+    event.stopPropagation();
+    this.clearSelection();
+    const dt = select(el).datum();
+    selectAll("g.link")
+      .each((d: any, i: number, n: any) => {
+        if (d.nodeIn === dt || d.nodeOut === dt) {
+          select(n[i]).select("path").classed("selected", true);
+        }
+      });
+  }
+
+  public redraw(): Sankey {
+    this.clear().initialise().draw();
     return this;
   }
 
@@ -122,6 +239,41 @@ export class Sankey {
     let nodes: string = this.nodes.map(n => `${n.name}: ${n.value} (L: ${n.layer})`).join("\n");
     let links: string = this.links.map(l => `${l.nodeIn.name}->${l.nodeOut.name}`).join("\n");
     return `nodes:\n${nodes}\n\nlinks:\n${links}`;
+  }
+
+  /**
+   * Currently in horizontal orientations
+   * y0 is the top y value of link at source node
+   * y1 is the bottom y value of link at target node
+   */
+  private _adjustLinks(): void {
+    const target = new Map<number, number>();
+    this.nodes.forEach((node: TNode) => {
+      let src = this.orient === "horizontal" ? node.y : node.x; 
+      let tgt = 0;
+      node.linksOut.forEach((link: TLink) => {
+        link.width = Math.max(1, this._scale(link.value));
+        if (this.orient === "horizontal") {
+          link.y0 = src + (link.width / 2);
+          src += link.width;
+          if (!target.has(link.nodeOut.id)) {
+            target.set(link.nodeOut.id, link.nodeOut.y);
+          }
+          tgt = target.get(link.nodeOut.id) as number;
+          link.y1 = tgt + (link.width / 2);
+          target.set(link.nodeOut.id, link.y1 + (link.width / 2));
+        } else {
+          link.y0 = src + (link.width / 2);
+          src += link.width;
+          if (!target.has(link.nodeOut.id)) {
+            target.set(link.nodeOut.id, link.nodeOut.x);
+          }
+          tgt = target.get(link.nodeOut.id) as number;
+          link.y1 = tgt + (link.width / 2);
+          target.set(link.nodeOut.id, link.y1 + (link.width / 2)); 
+        }
+      });
+    });
   }
 
   private _adjustNodesX(): void {
@@ -220,11 +372,15 @@ export class Sankey {
 
     links.forEach((link: TLink, i: number) => {
       this.links.push({
+        fill: link.fill,
         nodeIn: this.nodes[link.source],
         nodeOut: this.nodes[link.target],
         source: link.source,
         target: link.target,
-        value: link.value
+        value: link.value,
+        width: 0,
+        y0: 0,
+        y1: 0
       });
       this.links[i].nodeIn.linksOut.push(this.links[i]);
       this.links[i].nodeOut.linksIn.push(this.links[i]);
@@ -248,6 +404,7 @@ export class Sankey {
         node.layer = 0;
         track.set(node.id, []);
       }
+
       node.linksOut.forEach((link: TLink) => {  
         if (track.has(link.nodeOut.id)) {
           const parent = track.get(node.id) as number[];
@@ -275,5 +432,11 @@ export class Sankey {
 
     // sort to order by layer and node size
     this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value);
+
+    // for each node, sort links descending
+    this.nodes.forEach((node: TNode) => {
+      node.linksOut.sort((a, b) => b.value - a.value);
+      node.linksIn.sort((a, b) => b.value - a.value);
+    });
   }
 }

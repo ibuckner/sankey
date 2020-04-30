@@ -1,9 +1,6 @@
 @use "page-structure";
 @use "sankey";
-
-body {
-  background-color: #666;
-}
+@use "menu";
 
 #chart {
   background-color: #fff;

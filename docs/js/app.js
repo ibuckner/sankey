@@ -26,20 +26,76 @@ let json = {
   ]
 };
 
-const App = () => {
+const App = function() {
   function start () {
+    page();
+    menu();
+    orientation();
+    padding();
+
     const sankey = new chart.Sankey({
       container: document.getElementById("chart"),
       links: json.links,
       margin: { bottom: 20, left: 20, right: 30, top: 20 },
       nodes: json.nodes,
-      orient: "horizontal",
+      orient: "vertical",
       padding: 5,
       size: 30
     });
 
-    console.log(sankey.toString());
     sankey.draw();
+
+    window.addEventListener("sankey", function(e) {
+      if (e.detail.orient) {
+        sankey.orient = e.detail.orient;
+      }
+      if (e.detail.padding !== undefined) {
+        sankey.padding = e.detail.padding;
+      }
+      sankey.redraw();
+    });
+  }
+
+  function menu () {
+    const menu = document.querySelector(".menu");
+    const menuButton = document.querySelector(".menu-button");
+
+    if (menu && menuButton) {
+      menuButton.addEventListener("click", function(e) {
+        e.stopImmediatePropagation();
+        menu.classList.toggle("ready");
+      });
+      menu.addEventListener("click", function(e) { e.stopImmediatePropagation(); });
+    }
+    window.addEventListener("hide-menu", function() { menu.classList.add("ready"); });
+  }
+
+  function orientation() {
+    const ltr = document.getElementById("OrientLTR");
+    const ttb = document.getElementById("OrientTTB");
+    
+    ltr.addEventListener("click", handleClick);
+    ttb.addEventListener("click", handleClick);
+  
+    function handleClick() {
+      const data = { orient: ltr.checked ? "horizontal" : "vertical" };
+      window.dispatchEvent(new CustomEvent("sankey", { detail: data }));
+    }
+  }
+
+  function padding() {
+    const padding = document.getElementById("Padding");
+    padding.addEventListener("change", function(e) {
+      const data = { padding: +e.target.value };
+      window.dispatchEvent(new CustomEvent("sankey", { detail: data }));
+    });
+  }
+
+  function page() {
+    const chart = document.getElementById("chart");
+    chart.addEventListener("click", function() {
+      window.dispatchEvent(new CustomEvent("hide-menu"));
+    });
   }
 
   App.start = start;

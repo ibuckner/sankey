@@ -18,7 +18,7 @@ export default [
 			{
 				file: "docs/lib/sankey.js",
 				format: "iife",
-				name: "chart",
+				name: "chart"
 			}
 	  ],
 	  plugins: [

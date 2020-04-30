@@ -8,6 +8,24 @@
 </head>
 <body>
 	<div id="chart"></div>
+
+	<div class="menu-button">CHART OPTIONS</div>
+	<aside class="menu border ready">
+		<div class="panel-row" title="Adjust the padding between the nodes">
+			<label id="lblPadding" for="Padding">Padding:</label>
+			<input id="Padding" type="range" min="1" max="20" step="1" value="5" />
+		</div>
+
+		<div class="panel-row">
+			<label>Orientation:</label>
+			<div>
+				<input id="OrientLTR" type="radio" name="grpOrientation">
+				<label id="lblOrientLTR" for="OrientLTR" title="Switch to horizontal orientation">↔</label>
+				<input id="OrientTTB" type="radio" name="grpOrientation" checked>
+				<label id="lblOrientTTB" for="OrientTTB" title="Switch to vertical orientation">↕</label>
+			</div>
+		</div>
+	</aside>
 	<script src="lib/sankey.js"></script>
 	<script src="js/app.js"></script>
 	<script type="text/javascript">
