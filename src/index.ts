@@ -1,4 +1,3 @@
-import type { TLink, TMargin, TNode, TOrientation, TSankeyOptions } from "./typings";
 import { event, select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
 import { transition } from "d3-transition";
@@ -6,6 +5,28 @@ import { format } from "d3-format";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
 import { svg } from "../node_modules/@buckneri/spline/dist";
+
+export type TLink = {
+  fill: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
+  value: number, width: number, y0: number, y1: number
+};
+
+export type TMargin = { bottom: number, left: number, right: number, top: number };
+
+export type TNode = {
+  fill: string, h: number, id: number, layer: number, 
+  linksIn: TLink[], linksOut: TLink[], name: string, value: number, 
+  w: number, x: number, y: number
+};
+
+export type TOrientation = "horizontal" | "vertical";
+
+export type TSankeyOptions = {
+  container: HTMLElement, links: TLink[], margin: TMargin, nodes: TNode[],
+  orient: TOrientation, // determines node alignment
+  padding: number,      // minimum distance between node neighbours
+  size: number          // minimum node size
+};
 
 const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
 function formatNumber(v: number): string {
@@ -81,16 +102,68 @@ export class Sankey {
     this.drawCanvas();
     this.drawLinks();
     this.drawNodes();
+    this.drawLabels();
     return this;
   }
 
   public drawCanvas(): any {
-    const sg = svg(this.container, {
+    const sg: SVGElement = svg(this.container, {
       height: this.h, 
       margin: this.margin,
       width: this.w
-    });
-    sg.on("click", () => this.clearSelection());
+    }) as any;
+    select(sg).on("click", () => this.clearSelection());
+  }
+
+  public drawLabels(): any {
+    const canvas = select(this.container).select(".canvas");
+    const nodes = canvas.selectAll("g.node");
+
+    const outerLabel = nodes.append("text")
+      .attr("class", "node-label")
+      .attr("dy", "0.35em")
+      .attr("opacity", 0);
+
+    if (this.orient === "horizontal") {
+      outerLabel
+        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.size + 6 : -6)
+        .attr("y", (d: any) => this._scale(d.value) / 2)
+        .attr("text-anchor", (d: any) => d.x + this.size > this.rw / 2 ? "end" : "start")
+        .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
+        .text((d: any) => d.name);
+    } else {
+      outerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.size + 10 : - 10)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
+    }
+
+    const innerLabel = nodes.append("text")
+      .attr("class", "node-label")
+      .attr("dy", "0.35em")
+      .attr("opacity", 0);
+
+    if (this.orient === "horizontal") {
+      innerLabel
+        .attr("x", (d: any) => -this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.size / 2)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(270)")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    } else {
+      innerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.size / 2)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    }
+
+    const t1: any = transition().duration(600);
+    outerLabel.transition(t1).delay(1000)
+      .style("opacity", 1);
+    innerLabel.transition(t1).delay(1000)
+      .style("opacity", 1);
   }
 
   public drawLinks(): any {
@@ -174,51 +247,11 @@ export class Sankey {
     nodes.append("title")
       .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
 
-    const outerLabel = nodes.append("text")
-      .attr("class", "node-label")
-      .attr("dy", "0.35em");
-
-    if (this.orient === "horizontal") {
-      outerLabel
-        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.size + 6 : -6)
-        .attr("y", (d: any) => this._scale(d.value) / 2)
-        .attr("text-anchor", (d: any) => d.x + this.size > this.rw / 2 ? "end" : "start")
-        .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
-        .text((d: any) => d.name);
-    } else {
-      outerLabel
-        .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.size + 10 : - 10)
-        .attr("text-anchor", "middle")
-        .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
-    }
-
-    const innerLabel = nodes.append("text")
-    .attr("class", "node-label")
-    .attr("dy", "0.35em");
-
-    if (this.orient === "horizontal") {
-      innerLabel
-        .attr("x", (d: any) => -this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.size / 2)
-        .attr("text-anchor", "middle")
-        .attr("transform", "rotate(270)")
-        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-    } else {
-      innerLabel
-        .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.size / 2)
-        .attr("text-anchor", "middle")
-        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-    }
-
     function dragstart(d: any) {
       if (!d.__x) { d.__x = event.x; }
       if (!d.__y) { d.__y = event.y; }
       if (!d.__x0) { d.__x0 = d.x; }
       if (!d.__y0) { d.__y0 = d.y; }
-      if (!d.__x1) { d.__x1 = d.x + d.w; }
-      if (!d.__y1) { d.__y1 = d.y + d.h; }
     }
 
     function dragmove(this: SVGGElement, d: any) {
@@ -227,34 +260,22 @@ export class Sankey {
           const dx = event.x - d.__x;
           const dy = event.y - d.__y;
           // x direction
-          d.x0 = d.__x0 + dx;
-          d.x1 = d.__x1 + dx;
-          if (d.x0 < 0) {
-            d.x0 = 0;
-            d.x1 = self.size;
-          }
-          if (d.x1 > self.w) {
-            d.x0 = self.w - self.size;
-            d.x1 = self.w;
+          d.x = d.__x0 + dx;
+          if (d.x < 0) {
+            d.x = 0;
           }
           // y direction
-          d.y0 = d.__y0 + dy;
-          d.y1 = d.__y1 + dy;
-          if (d.y0 < 0) {
-            d.y0 = 0;
-            d.y1 = d.__y1 - d.__y0;
-          }
-          if (d.y1 > self.h) {
-            d.y0 = self.h - (d.__y1 - d.__y0);
-            d.y1 = self.h;
+          d.y = d.__y0 + dy;
+          if (d.y < 0) {
+            d.y = 0;
           }
           
-          return `translate(${d.x0}, ${d.y0})`;
+          return `translate(${d.x}, ${d.y})`;
         });
   
-      /*self._adjustLinks();
+      self._adjustLinks();
       selectAll("path.link")
-        .attr("d", d => self.linkGenerator(d));*/
+        .attr("d", d => self.linkGenerator(d));
     }
 
     function dragend(d: any) {

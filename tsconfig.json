@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "src",
     "composite": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "declarationMap": false,
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "incremental": true,
@@ -14,7 +16,7 @@
     "strict": true,
     "target": "es2015",
     "tsBuildInfoFile": ".buildcache/default",
-    "typeRoots": ["./node_modules/@types", "./src/typings"]
+    "typeRoots": ["./node_modules/@types"]
   },
   "exclude": [
     "src/**/*.test.ts",

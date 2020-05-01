@@ -1,8 +1,6 @@
-@use "globals";
-
 .link {
   stroke-opacity: 0.3;
-  transition: all 500ms;
+  transition: stroke-opacity 500ms;
 }
 
 .link:hover {
@@ -15,7 +13,7 @@
 }
 
 .node {
-  transition: all 500ms;
+  transition: opacity 500ms;
 }
 
 .node:hover {
@@ -27,5 +25,8 @@ rect {
 }
 
 text {
-  user-select: none;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
 }

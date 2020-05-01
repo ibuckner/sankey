@@ -1,4 +1,5 @@
 @use "globals";
+@use "menu";
 
 html,
 body {
@@ -11,4 +12,13 @@ body {
 
 svg {
   font-weight: normal;
+}
+
+#chart {
+  background-color: #fff;
+  height: 98vh;
+  left: 1vh;
+  position: fixed;
+  top: 1vh;
+  width: calc(100vw - 2vh);
 }
