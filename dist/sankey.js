@@ -4326,7 +4326,7 @@ class Sankey {
         }
         if (options.container !== undefined) {
             this.container = options.container;
-            const box = this.container.getBoundingClientRect();
+            const box = measure(this.container);
             this.h = box.height;
             this.w = box.width;
             this.rh = this.h - this.margin.top - this.margin.bottom;

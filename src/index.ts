@@ -4,7 +4,7 @@ import { transition } from "d3-transition";
 import { format } from "d3-format";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
-import { svg } from "@buckneri/spline";
+import { svg, measure } from "@buckneri/spline";
 
 export type TLink = {
   fill: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
@@ -60,7 +60,7 @@ export class Sankey {
 
     if (options.container !== undefined) {
       this.container = options.container;
-      const box: DOMRect = this.container.getBoundingClientRect();
+      const box: DOMRect = measure(this.container);
       this.h = box.height;
       this.w = box.width;
       this.rh = this.h - this.margin.top - this.margin.bottom;
