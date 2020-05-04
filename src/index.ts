@@ -166,10 +166,13 @@ export class Sankey {
     }
 
     const t1: any = transition().duration(600);
-    outerLabel.transition(t1).delay(1000)
-      .style("opacity", 1);
-    innerLabel.transition(t1).delay(1000)
-      .style("opacity", 1);
+    if ( this.orient === "horizontal") {
+      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+    } else {
+      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+    }
   }
 
   public drawLinks(): any {

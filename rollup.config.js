@@ -12,12 +12,12 @@ export default [
 		},
 	  output: [
 			{
-				file: "dist/sankey.mjs",
+				file: "dist/sankey.js",
 				format: "es",
 				esModule: true
 			},
 			{
-				file: "dist/sankey.js",
+				file: "dist/iife/sankey.js",
 				format: "iife",
 				name: "chart"
 			},

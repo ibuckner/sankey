@@ -1,15 +1,11 @@
 {
   "name": "@buckneri/sankey",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "Just a sankey visualisation",
   "main": "./dist/sankey.js",
-  "module": "./dist/sankey.js",
   "types": "./dist/index.d.ts",
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "build": "npm run compile-js & npm run m-rmdir",
+    "build": "npm run compile-js & npm run make",
     "compile-js": "rollup -c",
     "compile-scss": "sass src/css:docs/css --no-source-map",
     "compile-css": "postcss docs/css/sankey.css --no-map -o docs/css/sankey.css -c postcss.config.js",
@@ -18,7 +14,7 @@
     "make": "npm run compile-scss & npm run compile-css & npm run m-typedef & npm run m-rmdir & npm run m-css",
     "m-css": "cpy docs/css/sankey.css dist",
     "m-typedef": "move-file dist/src/index.d.ts dist/index.d.ts",
-    "m-rmdir": "rimraf dist/src/ docs/lib/src",
+    "m-rmdir": "rimraf dist/src dist/iife/src",
     "test": "http-server ./docs -a localhost -p 5000 -o",
     "test-upload": "npm publish --dry-run --access public",
     "upload": "npm publish --access public"
