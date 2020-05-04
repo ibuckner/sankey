@@ -4,7 +4,7 @@ import { transition } from "d3-transition";
 import { format } from "d3-format";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
-import { svg } from "../node_modules/@buckneri/spline/dist";
+import { svg } from "@buckneri/spline";
 
 export type TLink = {
   fill: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
@@ -86,6 +86,12 @@ export class Sankey {
   public data(nodes: TNode[], links: TLink[]): Sankey {
     this._initNodeLink(nodes, links);
     return this;
+  }
+
+  public canvasClickHandler(el: Element) {
+    event.stopPropagation();
+    this.clearSelection();
+    window.dispatchEvent(new CustomEvent("clear-selected", { detail: el }));
   }
 
   public clear(): Sankey {
@@ -300,6 +306,7 @@ export class Sankey {
   public linkClickHandler(el: Element) {
     event.stopPropagation();
     this.clearSelection();
+    window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
     select(el).classed("selected", true);
   }
 
@@ -307,6 +314,7 @@ export class Sankey {
     event.stopPropagation();
     this.clearSelection();
     const dt = select(el).datum();
+    window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
     selectAll("g.link")
       .each((d: any, i: number, n: any) => {
         if (d.nodeIn === dt || d.nodeOut === dt) {

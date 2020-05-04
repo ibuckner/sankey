@@ -3855,6 +3855,11 @@ var chart = (function (exports) {
           this._initNodeLink(nodes, links);
           return this;
       }
+      canvasClickHandler(el) {
+          event.stopPropagation();
+          this.clearSelection();
+          window.dispatchEvent(new CustomEvent("clear-selected", { detail: el }));
+      }
       clear() {
           select(this.container).select("svg").remove();
           return this;
@@ -4051,12 +4056,14 @@ var chart = (function (exports) {
       linkClickHandler(el) {
           event.stopPropagation();
           this.clearSelection();
+          window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
           select(el).classed("selected", true);
       }
       nodeClickHandler(el) {
           event.stopPropagation();
           this.clearSelection();
           const dt = select(el).datum();
+          window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
           selectAll("g.link")
               .each((d, i, n) => {
               if (d.nodeIn === dt || d.nodeOut === dt) {

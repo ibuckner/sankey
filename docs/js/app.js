@@ -13,16 +13,16 @@ let json = {
     {source: 1,target: 10,value: 3000,fill: "#BEBADA"}, {source: 0,target: 4,value: 12000,fill: "#B3DE69"},
     {source: 2,target: 10,value: 1000,fill: "#FCC5C0"}, {source: 2,target: 11,value: 1000,fill: "#FCC5C0"},
     {source: 3,target: 10,value: 1000,fill: "#FCC5C0"}, {source: 3,target: 11,value: 1000,fill: "#FCC5C0"},
-    {source: 0,target: 12,value: 2000,fill: "#B3DE69"}, {source: 0,target: 8,value: 1000,fill: "#B3DE69"},
+    {source: 0,target: 12,value: 2,fill: "#B3DE69"}, {source: 0,target: 8,value: 1000,fill: "#B3DE69"},
     {source: 0,target: 9,value: 1000,fill: "#B3DE69"}, {source: 0,target: 6,value: 1000,fill: "#B3DE69"},
     {source: 4,target: 7,value: 5000,fill: "#BEBADA"}, {source: 4,target: 13,value: 1000,fill: "#BEBADA"},
     {source: 4,target: 1,value: 4000,fill: "#BEBADA"}, {source: 4,target: 10,value: 1000,fill: "#BEBADA"},
     {source: 4,target: 11,value: 1000,fill: "#BEBADA"}, {source: 5,target: 10,value: 1000,fill: "#B3DE69"},
-    {source: 6,target: 10,value: 500,fill: "#BEBADA"}, {source: 6,target: 5,value: 500,fill: "#BEBADA"},
+    {source: 6,target: 10,value: 500,fill: "#BEBADA"}, {source: 6,target: 5,value: 22,fill: "#BEBADA"},
     {source: 7,target: 11,value: 1000,fill: "#BEBADA"}, {source: 7,target: 14,value: 1000,fill: "#BEBADA"},
     {source: 7,target: 10,value: 1000,fill: "#8DD3C7"}, {source: 7,target: 10,value: 1000,fill: "#FCC5C0"},
-    {source: 7,target: 15,value: 1000,fill: "#BEBADA"}, {source: 8,target: 10,value: 1000,fill: "#BEBADA"},
-    {source: 9,target: 10,value: 1000,fill: "#BEBADA"}
+    {source: 7,target: 15,value: 1000,fill: "#BEBADA"}, {source: 8,target: 10,value: 84,fill: "#BEBADA"},
+    {source: 9,target: 10,value: 22,fill: "#BEBADA"}
   ]
 };
 

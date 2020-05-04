@@ -1,6 +1,6 @@
 {
   "name": "@buckneri/sankey",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Just a sankey visualisation",
   "main": "./dist/sankey.js",
   "module": "./dist/sankey.js",
@@ -9,8 +9,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "npm run compile-js",
-    "compile-js": "rollup -cw",
+    "build": "npm run compile-js & npm run m-rmdir",
+    "compile-js": "rollup -c",
     "compile-scss": "sass src/css:docs/css --no-source-map",
     "compile-css": "postcss docs/css/sankey.css --no-map -o docs/css/sankey.css -c postcss.config.js",
     "eslint": "eslint -c .eslintrc.json --ext .ts --ext .js ./src",
@@ -18,7 +18,7 @@
     "make": "npm run compile-scss & npm run compile-css & npm run m-typedef & npm run m-rmdir & npm run m-css",
     "m-css": "cpy docs/css/sankey.css dist",
     "m-typedef": "move-file dist/src/index.d.ts dist/index.d.ts",
-    "m-rmdir": "rimraf dist/src/",
+    "m-rmdir": "rimraf dist/src/ docs/lib/src",
     "test": "http-server ./docs -a localhost -p 5000 -o",
     "test-upload": "npm publish --dry-run --access public",
     "upload": "npm publish --access public"
@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/ibuckner/sankey#readme",
   "dependencies": {
-    "@buckneri/spline": "^0.2.0",
+    "@buckneri/spline": "^0.2.3",
     "d3-drag": "^1.2.5",
     "d3-format": "^1.4.4",
     "d3-path": "^1.0.9",
@@ -52,7 +52,7 @@
     "autoprefixer": "^9.7.6",
     "clean-css": "^4.2.3",
     "eslint": "^6.8.0",
-    "eslint-plugin-jsdoc": "^24.0.0",
+    "eslint-plugin-jsdoc": "^24.0.2",
     "jsdoc": "^3.6.4",
     "npm-run-all": "^4.1.5",
     "postcss-cli": "^7.1.1",
