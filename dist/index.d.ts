@@ -77,8 +77,10 @@ export declare class Sankey {
      * y1 is the bottom y value of link at target node
      */
     private _adjustLinks;
-    private _adjustNodesX;
-    private _adjustNodesY;
+    private _adjustNodesHX;
+    private _adjustNodesHY;
+    private _adjustNodesVX;
+    private _adjustNodesVY;
     private _calculations;
     private _initNodeLink;
     private _nodeValueLayer;

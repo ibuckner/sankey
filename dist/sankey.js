@@ -4485,8 +4485,8 @@ class Sankey {
             .on("click", () => this.nodeClickHandler(event.currentTarget));
         const rect = nodes.append("rect")
             .attr("class", "node")
-            .attr("height", (d) => (this.orient === "horizontal" ? this._scale(d.value) : this.size) + "px")
-            .attr("width", (d) => (this.orient === "horizontal" ? this.size : this._scale(d.value)) + "px")
+            .attr("height", (d) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.size)) + "px")
+            .attr("width", (d) => Math.max(1, (this.orient === "horizontal" ? this.size : this._scale(d.value))) + "px")
             .attr("fill", (d) => d.fill)
             .attr("x", 0)
             .attr("y", 0)
@@ -4545,8 +4545,14 @@ class Sankey {
     initialise() {
         this._nodeValueLayer();
         this._calculations();
-        this._adjustNodesX();
-        this._adjustNodesY();
+        if (this.orient === "horizontal") {
+            this._adjustNodesHX();
+            this._adjustNodesHY();
+        }
+        else {
+            this._adjustNodesVY();
+            this._adjustNodesVX();
+        }
         this._adjustLinks();
         return this;
     }
@@ -4604,61 +4610,76 @@ class Sankey {
             target.set(link.nodeOut.id, link.y1 + (link.width / 2));
         });
     }
-    _adjustNodesX() {
-        if (this.orient === "horizontal") {
-            this.nodes.forEach((node) => {
-                node.h = this._scale(node.value);
-                node.x = node.layer * this._stepX[0];
-                if (node.x >= this.rw) {
-                    node.x -= this.size;
-                }
-                else if (node.x < 0) {
-                    node.x = 0;
-                }
-            });
-        }
-        else {
-            let x = 0, layer = 0;
-            this.nodes.forEach((node) => {
-                node.w = this._scale(node.value);
-                if (layer === node.layer) {
-                    node.x = x;
-                    x += node.w + this.padding;
-                }
-                else {
-                    layer = node.layer;
-                    node.x = 0;
-                    x = node.w + this.padding;
-                }
-            });
-        }
+    _adjustNodesHX() {
+        this.nodes.forEach((node) => {
+            node.h = this._scale(node.value);
+            node.w = this.size;
+            node.x = node.layer * this._stepX[0];
+            if (node.x >= this.rw) {
+                node.x -= this.size;
+            }
+            else if (node.x < 0) {
+                node.x = 0;
+            }
+        });
     }
-    _adjustNodesY() {
-        if (this.orient === "horizontal") {
-            let y = 0, layer = 0;
-            this.nodes.forEach((node) => {
-                if (layer === node.layer) {
-                    node.y = y;
-                    y += node.h + this.padding;
-                }
-                else {
-                    layer = node.layer;
-                    node.y = 0;
+    _adjustNodesHY() {
+        let y = 0, layer = 0, shiftColumn = false;
+        this.nodes.forEach((node) => {
+            if (layer === node.layer) {
+                if (y + node.h > this.rh) { // does this node go beyond the bounds?
+                    shiftColumn = true;
                     y = node.h + this.padding;
                 }
-            });
-        }
-        else {
-            this.nodes.forEach((node) => {
-                node.y = node.layer * this._stepY[0];
-                if (node.y >= this.rh) {
-                    node.y -= this.size;
+                if (shiftColumn) {
+                    node.x -= (node.w * 5);
                 }
-                else if (node.y < 0) {
-                    node.y = 0;
+                node.y = y;
+                y += node.h + this.padding;
+            }
+            else {
+                shiftColumn = false;
+                layer = node.layer;
+                node.y = 0;
+                y = node.h + this.padding;
+            }
+        });
+    }
+    _adjustNodesVX() {
+        let x = 0, layer = 0, shiftColumn = false;
+        this.nodes.forEach((node) => {
+            node.w = this._scale(node.value);
+            if (layer === node.layer) {
+                if (x + node.w > this.rw) { // does this node go beyond the bounds?
+                    shiftColumn = true;
+                    x = node.w + this.padding;
                 }
-            });
-        }
+                if (shiftColumn) {
+                    node.y -= (node.h * 2.5);
+                }
+                node.x = x;
+                x += node.w + this.padding;
+            }
+            else {
+                shiftColumn = false;
+                layer = node.layer;
+                node.x = 0;
+                x = node.w + this.padding;
+            }
+        });
+    }
+    _adjustNodesVY() {
+        this.nodes.forEach((node) => {
+            node.h = this.size;
+            node.w = this._scale(node.value);
+            node.y = node.layer * this._stepY[0];
+            if (node.y >= this.rh) {
+                node.y -= this.size;
+            }
+            else if (node.y < 0) {
+                node.y = 0;
+            }
+        });
     }
     _calculations() {
         this._extent = this.nodes.reduce((ac, n) => {
@@ -4692,14 +4713,14 @@ class Sankey {
         nodes.forEach((node, i) => {
             this.nodes.push({
                 fill: node.fill,
-                h: this.orient === "horizontal" ? 0 : this.size,
+                h: 0,
                 id: i,
                 layer: -1,
                 linksIn: [],
                 linksOut: [],
                 name: node.name,
                 value: node.value,
-                w: this.orient === "horizontal" ? this.size : 0,
+                w: 0,
                 x: 0,
                 y: 0
             });
@@ -4751,7 +4772,7 @@ class Sankey {
             });
         });
         this._totalLayers = max;
-        // final pass to move nodes with no outgoing links to the last layer
+        // move nodes with no outgoing links to the last layer
         this.nodes.forEach((node) => {
             if (node.linksOut.length === 0 && node.layer < this._totalLayers) {
                 node.layer = this._totalLayers;

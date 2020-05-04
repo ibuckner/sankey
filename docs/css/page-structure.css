@@ -34,8 +34,8 @@ option:hover {
 }
 
 .menu-button {
-  background-color: #fff;
-  color: #009;
+  background-color: transparent;
+  color: #ebfc04;
   cursor: pointer;
   font-weight: bold;
   position: fixed;
@@ -59,6 +59,7 @@ body {
   padding: 0;
   height: 100%;
   width: 100%;
+  background-color: #333;
   font-family: "Trebuchet MS", "Open Sans", "Segoe UI light", "Verdana", "Tahoma", "Helvetica", sans-serif;
   overflow: hidden;
 }
@@ -69,9 +70,9 @@ svg {
 
 #chart {
   background-color: #fff;
-  height: 98vh;
-  left: 1vh;
+  height: calc(100% - 50px);
+  left: 0;
   position: fixed;
-  top: 1vh;
-  width: calc(100vw - 2vh);
+  top: 50px;
+  width: 100%;
 }

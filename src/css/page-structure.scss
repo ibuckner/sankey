@@ -6,6 +6,7 @@ body {
   @include globals.reset;
   @include globals.maxsize;
 
+  background-color: #333;
   font-family: globals.$font-stack;
   overflow: hidden;
 }
@@ -16,9 +17,9 @@ svg {
 
 #chart {
   background-color: #fff;
-  height: 98vh;
-  left: 1vh;
+  height: calc(100% - 50px);
+  left: 0;
   position: fixed;
-  top: 1vh;
-  width: calc(100vw - 2vh);
+  top: 50px;
+  width: 100%;
 }
