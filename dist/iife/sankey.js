@@ -4685,11 +4685,21 @@ var chart = (function (exports) {
           });
       }
       _calculations() {
-          this._extent = this.nodes.reduce((ac, n) => {
-              ac[0] = (ac[0] === undefined || n.value < ac[0]) ? n.value : ac[0];
-              ac[1] = (ac[1] === undefined || n.value > ac[1]) ? n.value : ac[1];
-              return ac;
-          }, [0, 0]);
+          // minimum number
+          this._extent[0] = this.nodes.reduce((ac, n) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
+          // maximum number
+          let max = this._extent[0], layer = 0, runningTotal = 0;
+          this.nodes.forEach((node) => {
+              if (node.layer === layer) {
+                  runningTotal += node.value;
+              }
+              else {
+                  layer = node.layer;
+                  max = runningTotal > max ? runningTotal : max;
+                  runningTotal = node.value;
+              }
+          });
+          this._extent[1] = (runningTotal > max ? runningTotal : max) * 1.1;
           const s = this.nodes.reduce((ac, n) => { ac[n.layer] = (ac[n.layer] || 0) + 1; return ac; }, {});
           for (let [k, v] of Object.entries(s)) {
               if (this.orient === "horizontal") {
@@ -4775,12 +4785,6 @@ var chart = (function (exports) {
               });
           });
           this._totalLayers = max;
-          // move nodes with no outgoing links to the last layer
-          this.nodes.forEach((node) => {
-              if (node.linksOut.length === 0 && node.layer < this._totalLayers) {
-                  node.layer = this._totalLayers;
-              }
-          });
           // sort: by layer asc then by size then by a-z name
           this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));
       }
