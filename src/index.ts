@@ -8,7 +8,7 @@ import { svg, measure } from "@buckneri/spline";
 
 export type TLink = {
   fill: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
-  value: number, width: number, y0: number, y1: number
+  value: number, w: number, y0: number, y1: number
 };
 
 export type TMargin = { bottom: number, left: number, right: number, top: number };
@@ -97,13 +97,16 @@ export class Sankey {
     window.dispatchEvent(new CustomEvent("clear-selected", { detail: el }));
   }
 
-  public clear(): Sankey {
-    select(this.container).select("svg").remove();
+  public clearSelection(): Sankey {
+    selectAll(".selected").classed("selected", false);
     return this;
   }
 
-  public clearSelection(): Sankey {
-    selectAll(".selected").classed("selected", false);
+  /**
+   * Removes this chart from the DOM
+   */
+  public destroy(): Sankey {
+    select(this.container).select("svg").remove();
     return this;
   }
 
@@ -206,7 +209,7 @@ export class Sankey {
       .append("path")
         .attr("class", "link")
         .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
-        .attr("stroke-width", (d: TLink) => d.width)
+        .attr("stroke-width", (d: TLink) => d.w)
         .attr("fill", "none");
 
     linkCollection.append("title")
@@ -335,7 +338,7 @@ export class Sankey {
   }
 
   public redraw(): Sankey {
-    this.clear().initialise().draw();
+    this.destroy().initialise().draw();
     return this;
   }
 
@@ -359,7 +362,7 @@ export class Sankey {
 
     this.links.forEach((link: TLink) => {
       let src = 0, tgt = 0;
-      link.width = Math.max(1, this._scale(link.value));   
+      link.w = Math.max(1, this._scale(link.value));   
       if (!source.has(link.nodeIn.id)) {
         source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
       }
@@ -367,11 +370,11 @@ export class Sankey {
         target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
       }
       src = source.get(link.nodeIn.id) as number;
-      link.y0 = src + (link.width / 2);
+      link.y0 = src + (link.w / 2);
       tgt = target.get(link.nodeOut.id) as number;
-      link.y1 = tgt + (link.width / 2);
-      source.set(link.nodeIn.id, link.y0 + (link.width / 2));
-      target.set(link.nodeOut.id, link.y1 + (link.width / 2));
+      link.y1 = tgt + (link.w / 2);
+      source.set(link.nodeIn.id, link.y0 + (link.w / 2));
+      target.set(link.nodeOut.id, link.y1 + (link.w / 2));
     });
   }
 
@@ -487,33 +490,26 @@ export class Sankey {
 
   private _initNodeLink(nodes: TNode[], links: TLink[]): void {
     nodes.forEach((node: TNode, i: number) => {
-      this.nodes.push({
-        fill: node.fill,
-        h: 0,
-        id: i,
-        layer: -1,
-        linksIn: [],
-        linksOut: [],
-        name: node.name,
-        value: node.value,
-        w: 0,
-        x: 0,
-        y: 0
-      });
+      const n = node;
+      n.h = 0;
+      n.id = i;
+      n.layer = -1;
+      n.linksIn = [];
+      n.linksOut = [];
+      n.w = 0;
+      n.x = 0;
+      n.y = 0;
+      this.nodes.push(n);
     });
 
     links.forEach((link: TLink, i: number) => {
-      this.links.push({
-        fill: link.fill,
-        nodeIn: this.nodes[link.source],
-        nodeOut: this.nodes[link.target],
-        source: link.source,
-        target: link.target,
-        value: link.value,
-        width: 0,
-        y0: 0,
-        y1: 0
-      });
+      const l = link;
+      l.nodeIn = this.nodes[link.source];
+      l.nodeOut = this.nodes[link.target];
+      l.w = 0;
+      l.y0 = 0;
+      l.y1 = 0;
+      this.links.push(l);
       this.links[i].nodeIn.linksOut.push(this.links[i]);
       this.links[i].nodeOut.linksIn.push(this.links[i]);
     });

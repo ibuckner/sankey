@@ -5,7 +5,7 @@ export declare type TLink = {
     source: number;
     target: number;
     value: number;
-    width: number;
+    w: number;
     y0: number;
     y1: number;
 };
@@ -59,8 +59,11 @@ export declare class Sankey {
     constructor(options: TSankeyOptions);
     data(nodes: TNode[], links: TLink[]): Sankey;
     canvasClickHandler(el: Element): void;
-    clear(): Sankey;
     clearSelection(): Sankey;
+    /**
+     * Removes this chart from the DOM
+     */
+    destroy(): Sankey;
     draw(): Sankey;
     drawCanvas(): any;
     drawLabels(): any;
