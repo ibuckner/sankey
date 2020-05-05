@@ -1,6 +1,6 @@
 {
   "name": "@buckneri/sankey",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Just a sankey visualisation",
   "main": "./dist/sankey.js",
   "types": "./dist/index.d.ts",

@@ -25,10 +25,12 @@ export type TSankeyOptions = {
   container: HTMLElement,
   links: TLink[],
   margin: TMargin,
+  nodeMoveX: boolean,   // allow user movement on node
+  nodeMoveY: boolean,
   nodes: TNode[],
+  nodeSize: number      // minimum node size
   orient: TOrientation, // determines node alignment
   padding: number,      // minimum distance between node neighbours
-  size: number          // minimum node size
 };
 
 const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
@@ -42,12 +44,14 @@ export class Sankey {
   public linkGenerator: Function = () => true;
   public links: TLink[] = [];
   public margin: TMargin = { bottom: 20, left: 20, right: 30, top: 20 };
+  public nodeMoveX: boolean = true;
+  public nodeMoveY: boolean = true;
   public nodes: TNode[] = [];
+  public nodeSize: number = 20;
   public orient: TOrientation = "horizontal";
   public padding: number = 5;
   public rh: number = 160;
   public rw: number = 150;
-  public size: number = 20;
   public w: number = 200;
 
   private _extent: [number, number] = [0, 0]; // min/max node values
@@ -74,8 +78,16 @@ export class Sankey {
       this.padding = options.padding;
     }
 
-    if (options.size !== undefined) {
-      this.size = options.size;
+    if (options.nodeMoveX !== undefined) {
+      this.nodeMoveX = options.nodeMoveX;
+    }
+
+    if (options.nodeMoveY !== undefined) {
+      this.nodeMoveY = options.nodeMoveY;
+    }
+
+    if (options.nodeSize !== undefined) {
+      this.nodeSize = options.nodeSize;
     }
 
     if (options.orient !== undefined) {
@@ -138,15 +150,15 @@ export class Sankey {
 
     if (this.orient === "horizontal") {
       outerLabel
-        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.size + 6 : -6)
+        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
         .attr("y", (d: any) => this._scale(d.value) / 2)
-        .attr("text-anchor", (d: any) => d.x + this.size > this.rw / 2 ? "end" : "start")
+        .attr("text-anchor", (d: any) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
         .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
         .text((d: any) => d.name);
     } else {
       outerLabel
         .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.size + 10 : - 10)
+        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.nodeSize + 10 : - 10)
         .attr("text-anchor", "middle")
         .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
     }
@@ -159,14 +171,14 @@ export class Sankey {
     if (this.orient === "horizontal") {
       innerLabel
         .attr("x", (d: any) => -this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.size / 2)
+        .attr("y", (d: any) => this.nodeSize / 2)
         .attr("text-anchor", "middle")
         .attr("transform", "rotate(270)")
         .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
     } else {
       innerLabel
         .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.size / 2)
+        .attr("y", (d: any) => this.nodeSize / 2)
         .attr("text-anchor", "middle")
         .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
     }
@@ -185,13 +197,13 @@ export class Sankey {
     const canvas = select(this.container).select(".canvas");
     if (this.orient === "horizontal") {
       this.linkGenerator = linkHorizontal()
-        .source((d: any) => [d.nodeIn.x + this.size, d.y0])
+        .source((d: any) => [d.nodeIn.x + this.nodeSize, d.y0])
         .target((d: any) => [d.nodeOut.x, d.y1])
         .x((d: any) => d[0])
         .y((d: any) => d[1]);
     } else {
       this.linkGenerator = linkVertical()
-        .source((d: any) => [d.y0, d.nodeIn.y + this.size])
+        .source((d: any) => [d.y0, d.nodeIn.y + this.nodeSize])
         .target((d: any) => [d.y1, d.nodeOut.y])
         .x((d: any) => d[0])
         .y((d: any) => d[1]);
@@ -245,8 +257,8 @@ export class Sankey {
 
     const rect = nodes.append("rect")
       .attr("class", "node")
-      .attr("height", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.size)) + "px")
-      .attr("width", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this.size : this._scale(d.value))) + "px")
+      .attr("height", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
+      .attr("width", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
       .attr("fill", (d: TNode) => d.fill)
       .attr("x", 0)
       .attr("y", 0)
@@ -274,17 +286,23 @@ export class Sankey {
         .attr("transform", function (d: any) {
           const dx = event.x - d.__x;
           const dy = event.y - d.__y;
-          // x direction
-          d.x = d.__x0 + dx;
-          if (d.x < 0) {
-            d.x = 0;
-          }
-          // y direction
-          d.y = d.__y0 + dy;
-          if (d.y < 0) {
-            d.y = 0;
-          }
           
+          // x direction
+          if (self.nodeMoveX) {
+            d.x = d.__x0 + dx;
+            if (d.x < 0) {
+              d.x = 0;
+            }
+          }
+
+          // y direction
+          if (self.nodeMoveY) {
+            d.y = d.__y0 + dy;
+            if (d.y < 0) {
+              d.y = 0;
+            }
+          }
+
           return `translate(${d.x}, ${d.y})`;
         });
   
@@ -381,10 +399,10 @@ export class Sankey {
   private _adjustNodesHX(): void {
     this.nodes.forEach((node: TNode) => {
       node.h = this._scale(node.value);
-      node.w = this.size;
+      node.w = this.nodeSize;
       node.x = node.layer * this._stepX[0];
       if (node.x >= this.rw) {
-        node.x -= this.size;
+        node.x -= this.nodeSize;
       } else if (node.x < 0) {
         node.x = 0;
       }
@@ -438,11 +456,11 @@ export class Sankey {
 
   private _adjustNodesVY(): void {
     this.nodes.forEach((node: TNode) => {
-      node.h = this.size;
+      node.h = this.nodeSize;
       node.w = this._scale(node.value);
       node.y = node.layer * this._stepY[0];
       if (node.y >= this.rh) {
-        node.y -= this.size;
+        node.y -= this.nodeSize;
       } else if (node.y < 0) {
         node.y = 0;
       }

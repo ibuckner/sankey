@@ -4313,12 +4313,14 @@ var chart = (function (exports) {
           this.linkGenerator = () => true;
           this.links = [];
           this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
+          this.nodeMoveX = true;
+          this.nodeMoveY = true;
           this.nodes = [];
+          this.nodeSize = 20;
           this.orient = "horizontal";
           this.padding = 5;
           this.rh = 160;
           this.rw = 150;
-          this.size = 20;
           this.w = 200;
           this._extent = [0, 0]; // min/max node values
           this._stepX = []; // available gaps across x-axis
@@ -4338,8 +4340,14 @@ var chart = (function (exports) {
           if (options.padding !== undefined) {
               this.padding = options.padding;
           }
-          if (options.size !== undefined) {
-              this.size = options.size;
+          if (options.nodeMoveX !== undefined) {
+              this.nodeMoveX = options.nodeMoveX;
+          }
+          if (options.nodeMoveY !== undefined) {
+              this.nodeMoveY = options.nodeMoveY;
+          }
+          if (options.nodeSize !== undefined) {
+              this.nodeSize = options.nodeSize;
           }
           if (options.orient !== undefined) {
               this.orient = options.orient;
@@ -4391,16 +4399,16 @@ var chart = (function (exports) {
               .attr("opacity", 0);
           if (this.orient === "horizontal") {
               outerLabel
-                  .attr("x", (d) => d.x < (this.rw / 2) ? this.size + 6 : -6)
+                  .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
                   .attr("y", (d) => this._scale(d.value) / 2)
-                  .attr("text-anchor", (d) => d.x + this.size > this.rw / 2 ? "end" : "start")
+                  .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
                   .style("opacity", (d) => this._scale(d.value) > 20 ? null : 0)
                   .text((d) => d.name);
           }
           else {
               outerLabel
                   .attr("x", (d) => this._scale(d.value) / 2)
-                  .attr("y", (d) => d.y < (this.rh / 2) ? this.size + 10 : -10)
+                  .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
                   .attr("text-anchor", "middle")
                   .text((d) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
           }
@@ -4411,7 +4419,7 @@ var chart = (function (exports) {
           if (this.orient === "horizontal") {
               innerLabel
                   .attr("x", (d) => -this._scale(d.value) / 2)
-                  .attr("y", (d) => this.size / 2)
+                  .attr("y", (d) => this.nodeSize / 2)
                   .attr("text-anchor", "middle")
                   .attr("transform", "rotate(270)")
                   .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
@@ -4419,7 +4427,7 @@ var chart = (function (exports) {
           else {
               innerLabel
                   .attr("x", (d) => this._scale(d.value) / 2)
-                  .attr("y", (d) => this.size / 2)
+                  .attr("y", (d) => this.nodeSize / 2)
                   .attr("text-anchor", "middle")
                   .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
           }
@@ -4437,14 +4445,14 @@ var chart = (function (exports) {
           const canvas = select(this.container).select(".canvas");
           if (this.orient === "horizontal") {
               this.linkGenerator = linkHorizontal()
-                  .source((d) => [d.nodeIn.x + this.size, d.y0])
+                  .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
                   .target((d) => [d.nodeOut.x, d.y1])
                   .x((d) => d[0])
                   .y((d) => d[1]);
           }
           else {
               this.linkGenerator = linkVertical()
-                  .source((d) => [d.y0, d.nodeIn.y + this.size])
+                  .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
                   .target((d) => [d.y1, d.nodeOut.y])
                   .x((d) => d[0])
                   .y((d) => d[1]);
@@ -4491,8 +4499,8 @@ var chart = (function (exports) {
               .on("click", () => this.nodeClickHandler(event.currentTarget));
           const rect = nodes.append("rect")
               .attr("class", "node")
-              .attr("height", (d) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.size)) + "px")
-              .attr("width", (d) => Math.max(1, (this.orient === "horizontal" ? this.size : this._scale(d.value))) + "px")
+              .attr("height", (d) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
+              .attr("width", (d) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
               .attr("fill", (d) => d.fill)
               .attr("x", 0)
               .attr("y", 0)
@@ -4524,14 +4532,18 @@ var chart = (function (exports) {
                   const dx = event.x - d.__x;
                   const dy = event.y - d.__y;
                   // x direction
-                  d.x = d.__x0 + dx;
-                  if (d.x < 0) {
-                      d.x = 0;
+                  if (self.nodeMoveX) {
+                      d.x = d.__x0 + dx;
+                      if (d.x < 0) {
+                          d.x = 0;
+                      }
                   }
                   // y direction
-                  d.y = d.__y0 + dy;
-                  if (d.y < 0) {
-                      d.y = 0;
+                  if (self.nodeMoveY) {
+                      d.y = d.__y0 + dy;
+                      if (d.y < 0) {
+                          d.y = 0;
+                      }
                   }
                   return `translate(${d.x}, ${d.y})`;
               });
@@ -4619,10 +4631,10 @@ var chart = (function (exports) {
       _adjustNodesHX() {
           this.nodes.forEach((node) => {
               node.h = this._scale(node.value);
-              node.w = this.size;
+              node.w = this.nodeSize;
               node.x = node.layer * this._stepX[0];
               if (node.x >= this.rw) {
-                  node.x -= this.size;
+                  node.x -= this.nodeSize;
               }
               else if (node.x < 0) {
                   node.x = 0;
@@ -4676,11 +4688,11 @@ var chart = (function (exports) {
       }
       _adjustNodesVY() {
           this.nodes.forEach((node) => {
-              node.h = this.size;
+              node.h = this.nodeSize;
               node.w = this._scale(node.value);
               node.y = node.layer * this._stepY[0];
               if (node.y >= this.rh) {
-                  node.y -= this.size;
+                  node.y -= this.nodeSize;
               }
               else if (node.y < 0) {
                   node.y = 0;

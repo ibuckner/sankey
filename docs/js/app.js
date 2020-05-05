@@ -36,6 +36,7 @@ const App = function() {
   function start () {
     page();
     menu();
+    move();
     orientation();
     padding();
 
@@ -43,15 +44,17 @@ const App = function() {
       container: document.getElementById("chart"),
       links: json.links,
       margin: { bottom: 20, left: 20, right: 30, top: 20 },
+      nodeMoveX: document.getElementById("MoveX").checked,
+      nodeMoveY: document.getElementById("MoveY").checked,
       nodes: json.nodes,
+      nodeSize: 30,
       orient: document.getElementById("OrientLTR").checked ? "horizontal" : "vertical",
-      padding: 5,
-      size: 30
+      padding: 5
     });
 
     sankey.draw();
 
-    window.addEventListener("sankey", function(e) {
+    window.addEventListener("sankey-reload", function(e) {
       if (e.detail.orient) {
         sankey.orient = e.detail.orient;
       }
@@ -59,6 +62,15 @@ const App = function() {
         sankey.padding = e.detail.padding;
       }
       sankey.redraw();
+    });
+
+    window.addEventListener("sankey-update", function(e) {
+      if (e.detail.nodeMoveX !== undefined) {
+        sankey.nodeMoveX = e.detail.nodeMoveX;
+      }
+      if (e.detail.nodeMoveY !== undefined) {
+        sankey.nodeMoveY = e.detail.nodeMoveY;
+      }
     });
   }
 
@@ -76,6 +88,19 @@ const App = function() {
     window.addEventListener("hide-menu", function() { menu.classList.add("ready"); });
   }
 
+  function move() {
+    const x = document.getElementById("MoveX");
+    const y = document.getElementById("MoveY");
+    
+    x.addEventListener("click", handleClick);
+    y.addEventListener("click", handleClick);
+  
+    function handleClick() {
+      const data = { nodeMoveX: x.checked, nodeMoveY: y.checked };
+      window.dispatchEvent(new CustomEvent("sankey-update", { detail: data }));
+    }
+  }
+
   function orientation() {
     const ltr = document.getElementById("OrientLTR");
     const ttb = document.getElementById("OrientTTB");
@@ -85,7 +110,7 @@ const App = function() {
   
     function handleClick() {
       const data = { orient: ltr.checked ? "horizontal" : "vertical" };
-      window.dispatchEvent(new CustomEvent("sankey", { detail: data }));
+      window.dispatchEvent(new CustomEvent("sankey-reload", { detail: data }));
     }
   }
 
@@ -93,7 +118,7 @@ const App = function() {
     const padding = document.getElementById("Padding");
     padding.addEventListener("change", function(e) {
       const data = { padding: +e.target.value };
-      window.dispatchEvent(new CustomEvent("sankey", { detail: data }));
+      window.dispatchEvent(new CustomEvent("sankey-reload", { detail: data }));
     });
   }
 
