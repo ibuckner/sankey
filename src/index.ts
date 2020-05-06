@@ -98,19 +98,21 @@ export class Sankey {
         .initialise();
   }
 
-  public data(nodes: TNode[], links: TLink[]): Sankey {
-    this._initNodeLink(nodes, links);
+  /**
+   * Clears selection from Sankey
+   */
+  public clearSelection(): Sankey {
+    selectAll(".selected").classed("selected", false);
     return this;
   }
 
-  public canvasClickHandler(el: Element) {
-    event.stopPropagation();
-    this.clearSelection();
-    window.dispatchEvent(new CustomEvent("clear-selected", { detail: el }));
-  }
-
-  public clearSelection(): Sankey {
-    selectAll(".selected").classed("selected", false);
+  /**
+   * Saves data into Sankey
+   * @param nodes - Sankey nodes
+   * @param links - Sankey links
+   */
+  public data(nodes: TNode[], links: TLink[]): Sankey {
+    this._initNodeLink(nodes, links);
     return this;
   }
 
@@ -122,205 +124,20 @@ export class Sankey {
     return this;
   }
 
+  /**
+   * draws the Sankey
+   */
   public draw(): Sankey {
-    this.drawCanvas();
-    this.drawLinks();
-    this.drawNodes();
-    this.drawLabels();
+    this._drawCanvas();
+    this._drawLinks();
+    this._drawNodes();
+    this._drawLabels();
     return this;
   }
 
-  public drawCanvas(): any {
-    const sg: SVGElement = svg(this.container, {
-      height: this.h, 
-      margin: this.margin,
-      width: this.w
-    }) as any;
-    select(sg).on("click", () => this.clearSelection());
-  }
-
-  public drawLabels(): any {
-    const canvas = select(this.container).select(".canvas");
-    const nodes = canvas.selectAll("g.node");
-
-    const outerLabel = nodes.append("text")
-      .attr("class", "node-label")
-      .attr("dy", "0.35em")
-      .attr("opacity", 0);
-
-    if (this.orient === "horizontal") {
-      outerLabel
-        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
-        .attr("y", (d: any) => this._scale(d.value) / 2)
-        .attr("text-anchor", (d: any) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
-        .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
-        .text((d: any) => d.name);
-    } else {
-      outerLabel
-        .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.nodeSize + 10 : - 10)
-        .attr("text-anchor", "middle")
-        .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
-    }
-
-    const innerLabel = nodes.append("text")
-      .attr("class", "node-label")
-      .attr("dy", "0.35em")
-      .attr("opacity", 0);
-
-    if (this.orient === "horizontal") {
-      innerLabel
-        .attr("x", (d: any) => -this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.nodeSize / 2)
-        .attr("text-anchor", "middle")
-        .attr("transform", "rotate(270)")
-        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-    } else {
-      innerLabel
-        .attr("x", (d: any) => this._scale(d.value) / 2)
-        .attr("y", (d: any) => this.nodeSize / 2)
-        .attr("text-anchor", "middle")
-        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-    }
-
-    const t1: any = transition().duration(600);
-    if ( this.orient === "horizontal") {
-      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
-      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
-    } else {
-      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
-      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
-    }
-  }
-
-  public drawLinks(): any {
-    const canvas = select(this.container).select(".canvas");
-    if (this.orient === "horizontal") {
-      this.linkGenerator = linkHorizontal()
-        .source((d: any) => [d.nodeIn.x + this.nodeSize, d.y0])
-        .target((d: any) => [d.nodeOut.x, d.y1])
-        .x((d: any) => d[0])
-        .y((d: any) => d[1]);
-    } else {
-      this.linkGenerator = linkVertical()
-        .source((d: any) => [d.y0, d.nodeIn.y + this.nodeSize])
-        .target((d: any) => [d.y1, d.nodeOut.y])
-        .x((d: any) => d[0])
-        .y((d: any) => d[1]);
-    }
-
-    const linkCollection = canvas.append("g")
-      .selectAll("g")
-      .data(this.links)
-      .enter()
-      .append("g")
-        .attr("class", "link")
-        .on("click", (d: TLink) => this.linkClickHandler(event.target));
-
-    const path = linkCollection
-      .append("path")
-        .attr("class", "link")
-        .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
-        .attr("stroke-width", (d: TLink) => d.w)
-        .attr("fill", "none");
-
-    linkCollection.append("title")
-      .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
-
-    const t: any = transition().duration(600);
-    path.transition(t).delay(1000)
-      // @ts-ignore
-      .attr("d", d => this.linkGenerator(d));
-  }
-
-  public drawNodes(): any {
-    const self = this;
-    const canvas = select(this.container).select(".canvas");
-
-    const nodes = canvas.append("g")
-      .selectAll("g.node")
-      .data(this.nodes).enter()
-      .append("g")
-        .attr("class", "node")
-        .attr("transform", d => {
-          return this.orient === "horizontal"
-            ? `translate(${d.x},${-d.h})`
-            : `translate(${-d.w},${d.y})`;
-        })
-        .call(
-          // @ts-ignore
-          drag().clickDistance(1)
-            .on("start", dragstart)
-            .on("drag", dragmove as any)
-            .on("end", dragend))
-        .on("click", () => this.nodeClickHandler(event.currentTarget));
-
-    const rect = nodes.append("rect")
-      .attr("class", "node")
-      .attr("height", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
-      .attr("width", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
-      .attr("fill", (d: TNode) => d.fill)
-      .attr("x", 0)
-      .attr("y", 0)
-      .style("opacity", 0);
-
-    const t1: any = transition().duration(600);
-    rect.transition(t1).delay((d: any) => d.layer * 100)
-      .style("opacity", 1);
-
-    nodes.transition(t1)
-      .attr("transform", (d: TNode) => `translate(${d.x} ${d.y})`);
-    
-    nodes.append("title")
-      .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
-
-    function dragstart(d: any) {
-      if (!d.__x) { d.__x = event.x; }
-      if (!d.__y) { d.__y = event.y; }
-      if (!d.__x0) { d.__x0 = d.x; }
-      if (!d.__y0) { d.__y0 = d.y; }
-    }
-
-    function dragmove(this: SVGGElement, d: any) {
-      select(this)
-        .attr("transform", function (d: any) {
-          const dx = event.x - d.__x;
-          const dy = event.y - d.__y;
-          
-          // x direction
-          if (self.nodeMoveX) {
-            d.x = d.__x0 + dx;
-            if (d.x < 0) {
-              d.x = 0;
-            }
-          }
-
-          // y direction
-          if (self.nodeMoveY) {
-            d.y = d.__y0 + dy;
-            if (d.y < 0) {
-              d.y = 0;
-            }
-          }
-
-          return `translate(${d.x}, ${d.y})`;
-        });
-  
-      self._adjustLinks();
-      selectAll("path.link")
-        .attr("d", d => self.linkGenerator(d));
-    }
-
-    function dragend(d: any) {
-      delete d.__x;
-      delete d.__y;
-      delete d.__x0;
-      delete d.__x1;
-      delete d.__y0;
-      delete d.__y1;
-    }
-  }
-
+  /**
+   * Recalculate internal values
+   */
   public initialise(): Sankey {
     this._nodeValueLayer();
     this._calculations();
@@ -335,36 +152,16 @@ export class Sankey {
     return this;
   }
 
-  public linkClickHandler(el: Element) {
-    event.stopPropagation();
-    this.clearSelection();
-    window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
-    select(el).classed("selected", true);
-  }
-
-  public nodeClickHandler(el: Element) {
-    event.stopPropagation();
-    this.clearSelection();
-    const dt = select(el).datum();
-    window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-    selectAll("g.link")
-      .each((d: any, i: number, n: any) => {
-        if (d.nodeIn === dt || d.nodeOut === dt) {
-          select(n[i]).select("path").classed("selected", true);
-        }
-      });
-  }
-
-  public redraw(): Sankey {
-    this.destroy().initialise().draw();
-    return this;
-  }
-
+  /**
+   * Serialise the Sankey data
+   */
   public toString(): string {
     let nodes: string = this.nodes.map(n => `${n.name}: ${n.value} (L: ${n.layer})`).join("\n");
     let links: string = this.links.map(l => `${l.nodeIn.name}->${l.nodeOut.name}`).join("\n");
     return `nodes:\n${nodes}\n\nlinks:\n${links}`;
   }
+
+  // ***** PRIVATE METHODS
 
   /**
    * Currently in horizontal orientations
@@ -506,6 +303,197 @@ export class Sankey {
       .range(rng);
   }
 
+  private _drawCanvas(): any {
+    const sg: SVGElement = svg(this.container, {
+      height: this.h, 
+      margin: this.margin,
+      width: this.w
+    }) as any;
+    select(sg).on("click", () => this.clearSelection());
+  }
+
+  private _drawLabels(): any {
+    const canvas = select(this.container).select(".canvas");
+    const nodes = canvas.selectAll("g.node");
+
+    const outerLabel = nodes.append("text")
+      .attr("class", "node-label")
+      .attr("dy", "0.35em")
+      .attr("opacity", 0);
+
+    if (this.orient === "horizontal") {
+      outerLabel
+        .attr("x", (d: any) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
+        .attr("y", (d: any) => this._scale(d.value) / 2)
+        .attr("text-anchor", (d: any) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
+        .style("opacity", (d: any) => this._scale(d.value) > 20 ? null : 0)
+        .text((d: any) => d.name);
+    } else {
+      outerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => d.y < (this.rh / 2) ? this.nodeSize + 10 : - 10)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
+    }
+
+    const innerLabel = nodes.append("text")
+      .attr("class", "node-label")
+      .attr("dy", "0.35em")
+      .attr("opacity", 0);
+
+    if (this.orient === "horizontal") {
+      innerLabel
+        .attr("x", (d: any) => -this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.nodeSize / 2)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(270)")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    } else {
+      innerLabel
+        .attr("x", (d: any) => this._scale(d.value) / 2)
+        .attr("y", (d: any) => this.nodeSize / 2)
+        .attr("text-anchor", "middle")
+        .text((d: any) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+    }
+
+    const t1: any = transition().duration(600);
+    if ( this.orient === "horizontal") {
+      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+    } else {
+      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+    }
+  }
+
+  private _drawLinks(): any {
+    const canvas = select(this.container).select(".canvas");
+    if (this.orient === "horizontal") {
+      this.linkGenerator = linkHorizontal()
+        .source((d: any) => [d.nodeIn.x + this.nodeSize, d.y0])
+        .target((d: any) => [d.nodeOut.x, d.y1])
+        .x((d: any) => d[0])
+        .y((d: any) => d[1]);
+    } else {
+      this.linkGenerator = linkVertical()
+        .source((d: any) => [d.y0, d.nodeIn.y + this.nodeSize])
+        .target((d: any) => [d.y1, d.nodeOut.y])
+        .x((d: any) => d[0])
+        .y((d: any) => d[1]);
+    }
+
+    const linkCollection = canvas.append("g")
+      .selectAll("g")
+      .data(this.links)
+      .enter()
+      .append("g")
+        .attr("class", "link")
+        .on("click", (d: TLink) => this._linkClickHandler(event.target));
+
+    const path = linkCollection
+      .append("path")
+        .attr("class", "link")
+        .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
+        .attr("stroke-width", (d: TLink) => d.w)
+        .attr("fill", "none");
+
+    linkCollection.append("title")
+      .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
+
+    const t: any = transition().duration(600);
+    path.transition(t).delay(1000)
+      // @ts-ignore
+      .attr("d", d => this.linkGenerator(d));
+  }
+
+  private _drawNodes(): any {
+    const self = this;
+    const canvas = select(this.container).select(".canvas");
+
+    const nodes = canvas.append("g")
+      .selectAll("g.node")
+      .data(this.nodes).enter()
+      .append("g")
+        .attr("class", "node")
+        .attr("transform", d => {
+          return this.orient === "horizontal"
+            ? `translate(${d.x},${-d.h})`
+            : `translate(${-d.w},${d.y})`;
+        })
+        .call(
+          // @ts-ignore
+          drag().clickDistance(1)
+            .on("start", dragstart)
+            .on("drag", dragmove as any)
+            .on("end", dragend))
+        .on("click", () => this._nodeClickHandler(event.currentTarget));
+
+    const rect = nodes.append("rect")
+      .attr("class", "node")
+      .attr("height", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
+      .attr("width", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
+      .attr("fill", (d: TNode) => d.fill)
+      .attr("x", 0)
+      .attr("y", 0)
+      .style("opacity", 0);
+
+    const t1: any = transition().duration(600);
+    rect.transition(t1).delay((d: any) => d.layer * 100)
+      .style("opacity", 1);
+
+    nodes.transition(t1)
+      .attr("transform", (d: TNode) => `translate(${d.x} ${d.y})`);
+    
+    nodes.append("title")
+      .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
+
+    function dragstart(d: any) {
+      if (!d.__x) { d.__x = event.x; }
+      if (!d.__y) { d.__y = event.y; }
+      if (!d.__x0) { d.__x0 = d.x; }
+      if (!d.__y0) { d.__y0 = d.y; }
+    }
+
+    function dragmove(this: SVGGElement, d: any) {
+      select(this)
+        .attr("transform", function (d: any) {
+          const dx = event.x - d.__x;
+          const dy = event.y - d.__y;
+          
+          // x direction
+          if (self.nodeMoveX) {
+            d.x = d.__x0 + dx;
+            if (d.x < 0) {
+              d.x = 0;
+            }
+          }
+
+          // y direction
+          if (self.nodeMoveY) {
+            d.y = d.__y0 + dy;
+            if (d.y < 0) {
+              d.y = 0;
+            }
+          }
+
+          return `translate(${d.x}, ${d.y})`;
+        });
+  
+      self._adjustLinks();
+      selectAll("path.link")
+        .attr("d", d => self.linkGenerator(d));
+    }
+
+    function dragend(d: any) {
+      delete d.__x;
+      delete d.__y;
+      delete d.__x0;
+      delete d.__x1;
+      delete d.__y0;
+      delete d.__y1;
+    }
+  }
+
   private _initNodeLink(nodes: TNode[], links: TLink[]): void {
     nodes.forEach((node: TNode, i: number) => {
       const n = node;
@@ -531,6 +519,26 @@ export class Sankey {
       this.links[i].nodeIn.linksOut.push(this.links[i]);
       this.links[i].nodeOut.linksIn.push(this.links[i]);
     });
+  }
+
+  private _linkClickHandler(el: Element) {
+    event.stopPropagation();
+    this.clearSelection();
+    window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
+    select(el).classed("selected", true);
+  }
+
+  private _nodeClickHandler(el: Element) {
+    event.stopPropagation();
+    this.clearSelection();
+    const dt = select(el).datum();
+    window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
+    selectAll("g.link")
+      .each((d: any, i: number, n: any) => {
+        if (d.nodeIn === dt || d.nodeOut === dt) {
+          select(n[i]).select("path").classed("selected", true);
+        }
+      });
   }
 
   private _nodeValueLayer(): void {

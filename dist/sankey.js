@@ -4352,17 +4352,20 @@ class Sankey {
         this.data(options.nodes, options.links)
             .initialise();
     }
-    data(nodes, links) {
-        this._initNodeLink(nodes, links);
-        return this;
-    }
-    canvasClickHandler(el) {
-        event.stopPropagation();
-        this.clearSelection();
-        window.dispatchEvent(new CustomEvent("clear-selected", { detail: el }));
-    }
+    /**
+     * Clears selection from Sankey
+     */
     clearSelection() {
         selectAll(".selected").classed("selected", false);
+        return this;
+    }
+    /**
+     * Saves data into Sankey
+     * @param nodes - Sankey nodes
+     * @param links - Sankey links
+     */
+    data(nodes, links) {
+        this._initNodeLink(nodes, links);
         return this;
     }
     /**
@@ -4372,191 +4375,19 @@ class Sankey {
         select(this.container).select("svg").remove();
         return this;
     }
+    /**
+     * draws the Sankey
+     */
     draw() {
-        this.drawCanvas();
-        this.drawLinks();
-        this.drawNodes();
-        this.drawLabels();
+        this._drawCanvas();
+        this._drawLinks();
+        this._drawNodes();
+        this._drawLabels();
         return this;
     }
-    drawCanvas() {
-        const sg = svg(this.container, {
-            height: this.h,
-            margin: this.margin,
-            width: this.w
-        });
-        select(sg).on("click", () => this.clearSelection());
-    }
-    drawLabels() {
-        const canvas = select(this.container).select(".canvas");
-        const nodes = canvas.selectAll("g.node");
-        const outerLabel = nodes.append("text")
-            .attr("class", "node-label")
-            .attr("dy", "0.35em")
-            .attr("opacity", 0);
-        if (this.orient === "horizontal") {
-            outerLabel
-                .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
-                .attr("y", (d) => this._scale(d.value) / 2)
-                .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
-                .style("opacity", (d) => this._scale(d.value) > 20 ? null : 0)
-                .text((d) => d.name);
-        }
-        else {
-            outerLabel
-                .attr("x", (d) => this._scale(d.value) / 2)
-                .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
-                .attr("text-anchor", "middle")
-                .text((d) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
-        }
-        const innerLabel = nodes.append("text")
-            .attr("class", "node-label")
-            .attr("dy", "0.35em")
-            .attr("opacity", 0);
-        if (this.orient === "horizontal") {
-            innerLabel
-                .attr("x", (d) => -this._scale(d.value) / 2)
-                .attr("y", (d) => this.nodeSize / 2)
-                .attr("text-anchor", "middle")
-                .attr("transform", "rotate(270)")
-                .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-        }
-        else {
-            innerLabel
-                .attr("x", (d) => this._scale(d.value) / 2)
-                .attr("y", (d) => this.nodeSize / 2)
-                .attr("text-anchor", "middle")
-                .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
-        }
-        const t1 = transition().duration(600);
-        if (this.orient === "horizontal") {
-            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
-            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
-        }
-        else {
-            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
-            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
-        }
-    }
-    drawLinks() {
-        const canvas = select(this.container).select(".canvas");
-        if (this.orient === "horizontal") {
-            this.linkGenerator = linkHorizontal()
-                .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
-                .target((d) => [d.nodeOut.x, d.y1])
-                .x((d) => d[0])
-                .y((d) => d[1]);
-        }
-        else {
-            this.linkGenerator = linkVertical()
-                .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
-                .target((d) => [d.y1, d.nodeOut.y])
-                .x((d) => d[0])
-                .y((d) => d[1]);
-        }
-        const linkCollection = canvas.append("g")
-            .selectAll("g")
-            .data(this.links)
-            .enter()
-            .append("g")
-            .attr("class", "link")
-            .on("click", (d) => this.linkClickHandler(event.target));
-        const path = linkCollection
-            .append("path")
-            .attr("class", "link")
-            .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
-            .attr("stroke-width", (d) => d.w)
-            .attr("fill", "none");
-        linkCollection.append("title")
-            .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
-        const t = transition().duration(600);
-        path.transition(t).delay(1000)
-            // @ts-ignore
-            .attr("d", d => this.linkGenerator(d));
-    }
-    drawNodes() {
-        const self = this;
-        const canvas = select(this.container).select(".canvas");
-        const nodes = canvas.append("g")
-            .selectAll("g.node")
-            .data(this.nodes).enter()
-            .append("g")
-            .attr("class", "node")
-            .attr("transform", d => {
-            return this.orient === "horizontal"
-                ? `translate(${d.x},${-d.h})`
-                : `translate(${-d.w},${d.y})`;
-        })
-            .call(
-        // @ts-ignore
-        drag().clickDistance(1)
-            .on("start", dragstart)
-            .on("drag", dragmove)
-            .on("end", dragend))
-            .on("click", () => this.nodeClickHandler(event.currentTarget));
-        const rect = nodes.append("rect")
-            .attr("class", "node")
-            .attr("height", (d) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
-            .attr("width", (d) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
-            .attr("fill", (d) => d.fill)
-            .attr("x", 0)
-            .attr("y", 0)
-            .style("opacity", 0);
-        const t1 = transition().duration(600);
-        rect.transition(t1).delay((d) => d.layer * 100)
-            .style("opacity", 1);
-        nodes.transition(t1)
-            .attr("transform", (d) => `translate(${d.x} ${d.y})`);
-        nodes.append("title")
-            .text((d) => `${d.name} - ${formatNumber(d.value)}`);
-        function dragstart(d) {
-            if (!d.__x) {
-                d.__x = event.x;
-            }
-            if (!d.__y) {
-                d.__y = event.y;
-            }
-            if (!d.__x0) {
-                d.__x0 = d.x;
-            }
-            if (!d.__y0) {
-                d.__y0 = d.y;
-            }
-        }
-        function dragmove(d) {
-            select(this)
-                .attr("transform", function (d) {
-                const dx = event.x - d.__x;
-                const dy = event.y - d.__y;
-                // x direction
-                if (self.nodeMoveX) {
-                    d.x = d.__x0 + dx;
-                    if (d.x < 0) {
-                        d.x = 0;
-                    }
-                }
-                // y direction
-                if (self.nodeMoveY) {
-                    d.y = d.__y0 + dy;
-                    if (d.y < 0) {
-                        d.y = 0;
-                    }
-                }
-                return `translate(${d.x}, ${d.y})`;
-            });
-            self._adjustLinks();
-            selectAll("path.link")
-                .attr("d", d => self.linkGenerator(d));
-        }
-        function dragend(d) {
-            delete d.__x;
-            delete d.__y;
-            delete d.__x0;
-            delete d.__x1;
-            delete d.__y0;
-            delete d.__y1;
-        }
-    }
+    /**
+     * Recalculate internal values
+     */
     initialise() {
         this._nodeValueLayer();
         this._calculations();
@@ -4571,33 +4402,15 @@ class Sankey {
         this._adjustLinks();
         return this;
     }
-    linkClickHandler(el) {
-        event.stopPropagation();
-        this.clearSelection();
-        window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
-        select(el).classed("selected", true);
-    }
-    nodeClickHandler(el) {
-        event.stopPropagation();
-        this.clearSelection();
-        const dt = select(el).datum();
-        window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-        selectAll("g.link")
-            .each((d, i, n) => {
-            if (d.nodeIn === dt || d.nodeOut === dt) {
-                select(n[i]).select("path").classed("selected", true);
-            }
-        });
-    }
-    redraw() {
-        this.destroy().initialise().draw();
-        return this;
-    }
+    /**
+     * Serialise the Sankey data
+     */
     toString() {
         let nodes = this.nodes.map(n => `${n.name}: ${n.value} (L: ${n.layer})`).join("\n");
         let links = this.links.map(l => `${l.nodeIn.name}->${l.nodeOut.name}`).join("\n");
         return `nodes:\n${nodes}\n\nlinks:\n${links}`;
     }
+    // ***** PRIVATE METHODS
     /**
      * Currently in horizontal orientations
      * y0 is the top y value of link at source node
@@ -4734,6 +4547,184 @@ class Sankey {
             .domain([0, this._extent[1]])
             .range(rng);
     }
+    _drawCanvas() {
+        const sg = svg(this.container, {
+            height: this.h,
+            margin: this.margin,
+            width: this.w
+        });
+        select(sg).on("click", () => this.clearSelection());
+    }
+    _drawLabels() {
+        const canvas = select(this.container).select(".canvas");
+        const nodes = canvas.selectAll("g.node");
+        const outerLabel = nodes.append("text")
+            .attr("class", "node-label")
+            .attr("dy", "0.35em")
+            .attr("opacity", 0);
+        if (this.orient === "horizontal") {
+            outerLabel
+                .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
+                .attr("y", (d) => this._scale(d.value) / 2)
+                .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
+                .style("opacity", (d) => this._scale(d.value) > 20 ? null : 0)
+                .text((d) => d.name);
+        }
+        else {
+            outerLabel
+                .attr("x", (d) => this._scale(d.value) / 2)
+                .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
+                .attr("text-anchor", "middle")
+                .text((d) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
+        }
+        const innerLabel = nodes.append("text")
+            .attr("class", "node-label")
+            .attr("dy", "0.35em")
+            .attr("opacity", 0);
+        if (this.orient === "horizontal") {
+            innerLabel
+                .attr("x", (d) => -this._scale(d.value) / 2)
+                .attr("y", (d) => this.nodeSize / 2)
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(270)")
+                .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+        }
+        else {
+            innerLabel
+                .attr("x", (d) => this._scale(d.value) / 2)
+                .attr("y", (d) => this.nodeSize / 2)
+                .attr("text-anchor", "middle")
+                .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+        }
+        const t1 = transition().duration(600);
+        if (this.orient === "horizontal") {
+            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
+            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
+        }
+        else {
+            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
+            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
+        }
+    }
+    _drawLinks() {
+        const canvas = select(this.container).select(".canvas");
+        if (this.orient === "horizontal") {
+            this.linkGenerator = linkHorizontal()
+                .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
+                .target((d) => [d.nodeOut.x, d.y1])
+                .x((d) => d[0])
+                .y((d) => d[1]);
+        }
+        else {
+            this.linkGenerator = linkVertical()
+                .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
+                .target((d) => [d.y1, d.nodeOut.y])
+                .x((d) => d[0])
+                .y((d) => d[1]);
+        }
+        const linkCollection = canvas.append("g")
+            .selectAll("g")
+            .data(this.links)
+            .enter()
+            .append("g")
+            .attr("class", "link")
+            .on("click", (d) => this._linkClickHandler(event.target));
+        const path = linkCollection
+            .append("path")
+            .attr("class", "link")
+            .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
+            .attr("stroke-width", (d) => d.w)
+            .attr("fill", "none");
+        linkCollection.append("title")
+            .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
+        const t = transition().duration(600);
+        path.transition(t).delay(1000)
+            // @ts-ignore
+            .attr("d", d => this.linkGenerator(d));
+    }
+    _drawNodes() {
+        const self = this;
+        const canvas = select(this.container).select(".canvas");
+        const nodes = canvas.append("g")
+            .selectAll("g.node")
+            .data(this.nodes).enter()
+            .append("g")
+            .attr("class", "node")
+            .attr("transform", d => {
+            return this.orient === "horizontal"
+                ? `translate(${d.x},${-d.h})`
+                : `translate(${-d.w},${d.y})`;
+        })
+            .call(
+        // @ts-ignore
+        drag().clickDistance(1)
+            .on("start", dragstart)
+            .on("drag", dragmove)
+            .on("end", dragend))
+            .on("click", () => this._nodeClickHandler(event.currentTarget));
+        const rect = nodes.append("rect")
+            .attr("class", "node")
+            .attr("height", (d) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
+            .attr("width", (d) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
+            .attr("fill", (d) => d.fill)
+            .attr("x", 0)
+            .attr("y", 0)
+            .style("opacity", 0);
+        const t1 = transition().duration(600);
+        rect.transition(t1).delay((d) => d.layer * 100)
+            .style("opacity", 1);
+        nodes.transition(t1)
+            .attr("transform", (d) => `translate(${d.x} ${d.y})`);
+        nodes.append("title")
+            .text((d) => `${d.name} - ${formatNumber(d.value)}`);
+        function dragstart(d) {
+            if (!d.__x) {
+                d.__x = event.x;
+            }
+            if (!d.__y) {
+                d.__y = event.y;
+            }
+            if (!d.__x0) {
+                d.__x0 = d.x;
+            }
+            if (!d.__y0) {
+                d.__y0 = d.y;
+            }
+        }
+        function dragmove(d) {
+            select(this)
+                .attr("transform", function (d) {
+                const dx = event.x - d.__x;
+                const dy = event.y - d.__y;
+                // x direction
+                if (self.nodeMoveX) {
+                    d.x = d.__x0 + dx;
+                    if (d.x < 0) {
+                        d.x = 0;
+                    }
+                }
+                // y direction
+                if (self.nodeMoveY) {
+                    d.y = d.__y0 + dy;
+                    if (d.y < 0) {
+                        d.y = 0;
+                    }
+                }
+                return `translate(${d.x}, ${d.y})`;
+            });
+            self._adjustLinks();
+            selectAll("path.link")
+                .attr("d", d => self.linkGenerator(d));
+        }
+        function dragend(d) {
+            delete d.__x;
+            delete d.__y;
+            delete d.__x0;
+            delete d.__x1;
+            delete d.__y0;
+            delete d.__y1;
+        }
+    }
     _initNodeLink(nodes, links) {
         nodes.forEach((node, i) => {
             const n = node;
@@ -4757,6 +4748,24 @@ class Sankey {
             this.links.push(l);
             this.links[i].nodeIn.linksOut.push(this.links[i]);
             this.links[i].nodeOut.linksIn.push(this.links[i]);
+        });
+    }
+    _linkClickHandler(el) {
+        event.stopPropagation();
+        this.clearSelection();
+        window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
+        select(el).classed("selected", true);
+    }
+    _nodeClickHandler(el) {
+        event.stopPropagation();
+        this.clearSelection();
+        const dt = select(el).datum();
+        window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
+        selectAll("g.link")
+            .each((d, i, n) => {
+            if (d.nodeIn === dt || d.nodeOut === dt) {
+                select(n[i]).select("path").classed("selected", true);
+            }
         });
     }
     _nodeValueLayer() {

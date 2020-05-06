@@ -61,22 +61,31 @@ export declare class Sankey {
     private _stepY;
     private _totalLayers;
     constructor(options: TSankeyOptions);
-    data(nodes: TNode[], links: TLink[]): Sankey;
-    canvasClickHandler(el: Element): void;
+    /**
+     * Clears selection from Sankey
+     */
     clearSelection(): Sankey;
+    /**
+     * Saves data into Sankey
+     * @param nodes - Sankey nodes
+     * @param links - Sankey links
+     */
+    data(nodes: TNode[], links: TLink[]): Sankey;
     /**
      * Removes this chart from the DOM
      */
     destroy(): Sankey;
+    /**
+     * draws the Sankey
+     */
     draw(): Sankey;
-    drawCanvas(): any;
-    drawLabels(): any;
-    drawLinks(): any;
-    drawNodes(): any;
+    /**
+     * Recalculate internal values
+     */
     initialise(): Sankey;
-    linkClickHandler(el: Element): void;
-    nodeClickHandler(el: Element): void;
-    redraw(): Sankey;
+    /**
+     * Serialise the Sankey data
+     */
     toString(): string;
     /**
      * Currently in horizontal orientations
@@ -89,6 +98,12 @@ export declare class Sankey {
     private _adjustNodesVX;
     private _adjustNodesVY;
     private _calculations;
+    private _drawCanvas;
+    private _drawLabels;
+    private _drawLinks;
+    private _drawNodes;
     private _initNodeLink;
+    private _linkClickHandler;
+    private _nodeClickHandler;
     private _nodeValueLayer;
 }
