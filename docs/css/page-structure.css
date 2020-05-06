@@ -15,13 +15,14 @@ option:hover {
   flex-direction: column;
   flex-wrap: nowrap;
   transition: all 500ms ease-in-out;
-  background-color: #fff;
+  background-color: #333;
+  color: #ebfc04;
   line-height: 26px;
   min-width: 220px;
   padding: 15px;
   position: fixed;
   right: 0;
-  top: 26px;
+  top: 50px;
   width: 25%;
   z-index: 600000;
 }
@@ -38,9 +39,7 @@ option:hover {
   color: #ebfc04;
   cursor: pointer;
   font-weight: bold;
-  position: fixed;
-  right: 5;
-  top: 5;
+  margin: 10px;
   user-select: none;
 }
 
@@ -59,7 +58,6 @@ body {
   padding: 0;
   height: 100%;
   width: 100%;
-  background-color: #333;
   font-family: "Trebuchet MS", "Open Sans", "Segoe UI light", "Verdana", "Tahoma", "Helvetica", sans-serif;
   overflow: hidden;
 }
@@ -74,5 +72,19 @@ svg {
   left: 0;
   position: fixed;
   top: 50px;
+  width: 100%;
+}
+
+#title {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  background-color: #333;
+  height: 50px;
+  left: 0;
+  position: fixed;
+  top: 0;
   width: 100%;
 }

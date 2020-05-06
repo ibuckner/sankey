@@ -6,7 +6,6 @@ body {
   @include globals.reset;
   @include globals.maxsize;
 
-  background-color: #333;
   font-family: globals.$font-stack;
   overflow: hidden;
 }
@@ -21,5 +20,17 @@ svg {
   left: 0;
   position: fixed;
   top: 50px;
+  width: 100%;
+}
+
+#title {
+  @include globals.fx($dir: row);
+  @include globals.fx-right;
+
+  background-color: #333;
+  height: 50px;
+  left: 0;
+  position: fixed;
+  top: 0;
   width: 100%;
 }

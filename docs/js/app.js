@@ -61,7 +61,7 @@ const App = function() {
       if (e.detail.padding !== undefined) {
         sankey.padding = e.detail.padding;
       }
-      sankey.redraw();
+      sankey.destroy().initialise().draw();
     });
 
     window.addEventListener("sankey-update", function(e) {

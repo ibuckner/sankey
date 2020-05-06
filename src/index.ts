@@ -41,7 +41,6 @@ function formatNumber(v: number): string {
 export class Sankey {
   public container: HTMLElement = document.querySelector("body") as HTMLElement;
   public h: number = 200;
-  public linkGenerator: Function = () => true;
   public links: TLink[] = [];
   public margin: TMargin = { bottom: 20, left: 20, right: 30, top: 20 };
   public nodeMoveX: boolean = true;
@@ -55,6 +54,7 @@ export class Sankey {
   public w: number = 200;
 
   private _extent: [number, number] = [0, 0]; // min/max node values
+  private _linkGenerator: Function = () => true;
   private _scale: any;
   private _stepX: number[] = [];              // available gaps across x-axis
   private _stepY: number[] = [];              // available gaps across y-axis
@@ -369,13 +369,13 @@ export class Sankey {
   private _drawLinks(): any {
     const canvas = select(this.container).select(".canvas");
     if (this.orient === "horizontal") {
-      this.linkGenerator = linkHorizontal()
+      this._linkGenerator = linkHorizontal()
         .source((d: any) => [d.nodeIn.x + this.nodeSize, d.y0])
         .target((d: any) => [d.nodeOut.x, d.y1])
         .x((d: any) => d[0])
         .y((d: any) => d[1]);
     } else {
-      this.linkGenerator = linkVertical()
+      this._linkGenerator = linkVertical()
         .source((d: any) => [d.y0, d.nodeIn.y + this.nodeSize])
         .target((d: any) => [d.y1, d.nodeOut.y])
         .x((d: any) => d[0])
@@ -403,7 +403,7 @@ export class Sankey {
     const t: any = transition().duration(600);
     path.transition(t).delay(1000)
       // @ts-ignore
-      .attr("d", d => this.linkGenerator(d));
+      .attr("d", d => this._linkGenerator(d));
   }
 
   private _drawNodes(): any {
@@ -481,7 +481,7 @@ export class Sankey {
   
       self._adjustLinks();
       selectAll("path.link")
-        .attr("d", d => self.linkGenerator(d));
+        .attr("d", d => self._linkGenerator(d));
     }
 
     function dragend(d: any) {

@@ -16,13 +16,14 @@ option:hover {
   @include globals.fx($dir: column);
   @include globals.transition;
 
-  background-color: #fff;
+  background-color: #333;
+  color: #ebfc04;
   line-height: 26px;
   min-width: 220px;
   padding: 15px;
   position: fixed;
   right: 0;
-  top: 26px;
+  top: 50px;
   width: 25%;
   z-index: 600000;
 }
@@ -38,9 +39,7 @@ option:hover {
   color: #ebfc04;
   cursor: pointer;
   font-weight: bold;
-  position: fixed;
-  right: 5;
-  top: 5;
+  margin: 10px;
   user-select: none;
 }
 

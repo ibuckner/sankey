@@ -6,9 +6,10 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "npm run compile-js & npm run make",
+    "compile-css": "npm run c-scss & npm run c-postcss",
     "compile-js": "rollup -c",
-    "compile-scss": "sass src/css:docs/css --no-source-map",
-    "compile-css": "postcss docs/css/sankey.css --no-map -o docs/css/sankey.css -c postcss.config.js",
+    "c-postcss": "postcss docs/css/sankey.css --no-map -o docs/css/sankey.css -c postcss.config.js",
+    "c-scss": "sass src/css:docs/css --no-source-map",
     "eslint": "eslint -c .eslintrc.json --ext .ts --ext .js ./src",
     "list-globals": "npm list -g --depth 0",
     "make": "npm run compile-scss & npm run compile-css & npm run m-typedef & npm run m-rmdir & npm run m-css",

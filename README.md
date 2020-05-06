@@ -1,6 +1,6 @@
 # sankey
 
-My take on building a sankey.
+My take on building a Sankey chart. The build includes a starter CSS file, and two javascript versions for ES modules and current browsers. No serious attempt has been made towards ie11 compatibility.
 
 ## Installation
 
@@ -10,84 +10,83 @@ npm i --save @buckneri/sankey
 
 ## API
 
+### Constructor
+
+```javascript
+const sankey = new Sankey({
+  container: document.getElementById("chart"),
+  links: data.links,
+  margin: { bottom: 20, left: 20, right: 20, top: 20 },
+  nodeMoveX: true,
+  nodeMoveY: true,
+  nodes: data.nodes,
+  nodeSize: 30,
+  orient: "horizontal" // or "vertical"
+  padding: 5
+});
+```
+
 ### Methods
 
-#### clearSelection()
+```javascript
+sankey.clearSelection();
+// clears selection from chart elements
 
-clears selection from chart elements
+sankey.data(nodes, links);
+// stores and initialises data
 
-#### data(nodes *TNode[]*, links *TLink[]*)
+sankey.destroy();
+// self-destruct
 
-saves data to chart
+sankey.draw();
+// draws chart to DOM
 
-#### destroy()
+sankey.initialise();
+// (re)calculates the internal values
 
-self-destruct Sankey
-
-#### draw()
-
-draws Sankey to DOM
-
-#### initialise()
-
-calculates the internal values
-
-#### toString()
-
-serialises the internal data
+sankey.toString();
+// serialises the internal data
+```
 
 ### Properties
 
-#### container *HTMLElement*
+```javascript
+sankey.container;
+// parent element for chart
 
-DOM element to draw Sankey to
+sankey.h;
+// height of chart
 
-#### h *number*
+sankey.links;
+// data for links
 
-height of Sankey
+sankey.margin;
+// defines the border zone around the canvas
 
-#### linkGenerator *Function*
+sankey.nodeMoveX;
+// determines if nodes can be moved left/right
 
-#### links *TLink[]*
+sankey.nodeMoveY;
+// determines if nodes can be moved up/down
 
-data for links
+sankey.nodes;
+// data for nodes
 
-#### margin *TMargin*
+sankey.nodeSize;
+// node size of non-data dimension
 
-gap between chart and canvas
+sankey.orient;
+// align nodes left-to-right, or top-to-bottom
 
-#### nodeMoveX *boolean*
+sankey.padding;
+// padding between the nodes
 
-determines if nodes can be moved left/right
+sankey.rh;
+// relative height, height - margins
 
-#### nodeMoveY *boolean*
+sankey.rw;
+// relative width, width - margins
 
-determines if nodes can be moved up/down
-
-#### nodes *TNode[]*
-
-data for nodes
-
-#### nodeSize *number*
-
-node size of non-data dimension
-
-#### orient *TOrientation*
-
-align nodes left-to-right, or top-to-bottom
-
-#### padding *number*
-
-padding between the nodes
-
-#### rh *number*
-
-relative height, height less margins
-
-#### rw *number*
-
-relative width, width less margins
-
-#### w *number*
-
-width of Sankey
+sankey.w;
+// width of chart
+```

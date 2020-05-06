@@ -18,6 +18,11 @@ $font-stack: "Trebuchet MS", "Open Sans", "Segoe UI light", "Verdana", "Tahoma",
   text-align: center;
 }
 
+@mixin fx-right {
+  align-items: center;
+  justify-content: flex-end;
+}
+
 @mixin fx-stretch {
   align-items: stretch;
   justify-content: stretch;
