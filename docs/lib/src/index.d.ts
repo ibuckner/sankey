@@ -43,7 +43,6 @@ export declare type TSankeyOptions = {
 export declare class Sankey {
     container: HTMLElement;
     h: number;
-    linkGenerator: Function;
     links: TLink[];
     margin: TMargin;
     nodeMoveX: boolean;
@@ -56,6 +55,7 @@ export declare class Sankey {
     rw: number;
     w: number;
     private _extent;
+    private _linkGenerator;
     private _scale;
     private _stepX;
     private _stepY;

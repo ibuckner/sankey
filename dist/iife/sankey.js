@@ -4310,7 +4310,6 @@ var chart = (function (exports) {
       constructor(options) {
           this.container = document.querySelector("body");
           this.h = 200;
-          this.linkGenerator = () => true;
           this.links = [];
           this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
           this.nodeMoveX = true;
@@ -4323,6 +4322,7 @@ var chart = (function (exports) {
           this.rw = 150;
           this.w = 200;
           this._extent = [0, 0]; // min/max node values
+          this._linkGenerator = () => true;
           this._stepX = []; // available gaps across x-axis
           this._stepY = []; // available gaps across y-axis
           this._totalLayers = 0;
@@ -4612,14 +4612,14 @@ var chart = (function (exports) {
       _drawLinks() {
           const canvas = select(this.container).select(".canvas");
           if (this.orient === "horizontal") {
-              this.linkGenerator = linkHorizontal()
+              this._linkGenerator = linkHorizontal()
                   .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
                   .target((d) => [d.nodeOut.x, d.y1])
                   .x((d) => d[0])
                   .y((d) => d[1]);
           }
           else {
-              this.linkGenerator = linkVertical()
+              this._linkGenerator = linkVertical()
                   .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
                   .target((d) => [d.y1, d.nodeOut.y])
                   .x((d) => d[0])
@@ -4643,7 +4643,7 @@ var chart = (function (exports) {
           const t = transition().duration(600);
           path.transition(t).delay(1000)
               // @ts-ignore
-              .attr("d", d => this.linkGenerator(d));
+              .attr("d", d => this._linkGenerator(d));
       }
       _drawNodes() {
           const self = this;
@@ -4717,7 +4717,7 @@ var chart = (function (exports) {
               });
               self._adjustLinks();
               selectAll("path.link")
-                  .attr("d", d => self.linkGenerator(d));
+                  .attr("d", d => self._linkGenerator(d));
           }
           function dragend(d) {
               delete d.__x;
