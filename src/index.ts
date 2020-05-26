@@ -7,7 +7,7 @@ import { drag } from "d3-drag";
 import { svg, measure } from "@buckneri/spline";
 
 export type TLink = {
-  fill: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
+  fill: string, id: string, nodeIn: TNode, nodeOut: TNode, source: number, target: number,
   value: number, w: number, y0: number, y1: number
 };
 
@@ -31,6 +31,7 @@ export type TSankeyOptions = {
   nodeSize: number      // minimum node size
   orient: TOrientation, // determines node alignment
   padding: number,      // minimum distance between node neighbours
+  playback: boolean     // changes the visualisation mode
 };
 
 const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
@@ -49,6 +50,7 @@ export class Sankey {
   public nodeSize: number = 20;
   public orient: TOrientation = "horizontal";
   public padding: number = 5;
+  public playback: boolean = false;
   public rh: number = 160;
   public rw: number = 150;
   public w: number = 200;
@@ -91,6 +93,10 @@ export class Sankey {
 
     if (options.orient !== undefined) {
       this.orient = options.orient;
+    }
+
+    if (options.playback !== undefined) {
+      this.playback = options.playback;
     }
     
     this.data(options.nodes, options.links)
@@ -215,34 +221,51 @@ export class Sankey {
    * spreads the nodes within layer
    */
   private _positionNodeInLayer(): void {
-    let layer = 0, n = 0;
+    let layer = -1, n = 0;
+    let layerTracker: any[] = [];
     if (this.orient === "horizontal") {
       this.nodes.forEach((node: TNode) => {
         if (layer === node.layer) {
           node.y = n;
           n += node.h + this.padding;
+          layerTracker[layer].sum = n;
+          layerTracker[layer].nodes.push(node);
         } else {
           layer = node.layer;
           node.y = 0;
           n = node.h + this.padding;
+          layerTracker.push({ nodes: [node], sum: n, total: this.rh });
         }
       });
     } else {
       this.nodes.forEach((node: TNode) => {
-        node.w = this._scale(node.value);
         if (layer === node.layer) {
-          if (n + node.w > this.rw) { // does this node go beyond the bounds?
-            n = node.w + this.padding;
-          }
           node.x = n;
           n += node.w + this.padding;
+          layerTracker[layer].sum = n;
+          layerTracker[layer].nodes.push(node);
         } else {
           layer = node.layer;
           node.x = 0;
           n = node.w + this.padding;
+          layerTracker.push({ nodes: [node], sum: n, total: this.rw });
         }
       });
     }
+    
+    // 2nd pass to widen out layers too tightly clustered together
+    layerTracker.forEach(layer => {
+      if (layer.sum * 1.2 < layer.total) {
+        const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
+        layer.nodes.forEach((node: TNode, i: number) => {
+          if (this.orient === "horizontal") {
+            node.y += (i + 1) * customPad;
+          } else {
+            node.x += (i + 1) * customPad;
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -303,6 +326,8 @@ export class Sankey {
       margin: this.margin,
       width: this.w
     }) as any;
+    sg.classList.add("sankey");
+    sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
     select(sg).on("click", () => this.clearSelection());
   }
 
@@ -361,7 +386,10 @@ export class Sankey {
   }
 
   private _drawLinks(): any {
-    const canvas = select(this.container).select(".canvas");
+    const svg = select(this.container).select("svg");
+    const id: string = (svg.node() as SVGElement).id;
+    const canvas = svg.select(".canvas");
+
     if (this.orient === "horizontal") {
       this._linkGenerator = linkHorizontal()
         .source((d: any) => [d.nodeIn.x + this.nodeSize, d.y0])
@@ -381,6 +409,7 @@ export class Sankey {
       .data(this.links)
       .enter()
       .append("g")
+        .attr("id", d => `${id}_${d.id}`)
         .attr("class", "link")
         .on("click", (d: TLink) => this._linkClickHandler(event.target));
 
@@ -402,12 +431,15 @@ export class Sankey {
 
   private _drawNodes(): any {
     const self = this;
-    const canvas = select(this.container).select(".canvas");
+    const svg = select(this.container).select("svg");
+    const id: string = (svg.node() as SVGElement).id;
+    const canvas = svg.select(".canvas");
 
     const nodes = canvas.append("g")
       .selectAll("g.node")
       .data(this.nodes).enter()
       .append("g")
+        .attr("id", d => `${id}_${d.id}`)
         .attr("class", "node")
         .attr("transform", d => {
           return this.orient === "horizontal"
@@ -509,6 +541,7 @@ export class Sankey {
       const l = link;
       l.nodeIn = this.nodes[link.source];   // replaces source in other sankey models
       l.nodeOut = this.nodes[link.target];  // ditto target
+      l.id = `${l.nodeIn.id}->${l.nodeOut.id}`;
       l.w = 0;    // width
       l.y0 = 0;   // value at source node (horizontal: top right y, vertical: bottom left x)
       l.y1 = 0;   // value at target node (horizontal: bottom left y, vertical; top right x)

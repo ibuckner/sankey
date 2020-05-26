@@ -1,5 +1,6 @@
 export declare type TLink = {
     fill: string;
+    id: string;
     nodeIn: TNode;
     nodeOut: TNode;
     source: number;
@@ -39,6 +40,7 @@ export declare type TSankeyOptions = {
     nodeSize: number;
     orient: TOrientation;
     padding: number;
+    playback: boolean;
 };
 export declare class Sankey {
     container: HTMLElement;
@@ -51,6 +53,7 @@ export declare class Sankey {
     nodeSize: number;
     orient: TOrientation;
     padding: number;
+    playback: boolean;
     rh: number;
     rw: number;
     w: number;

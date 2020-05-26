@@ -4315,6 +4315,7 @@ class Sankey {
         this.nodeSize = 20;
         this.orient = "horizontal";
         this.padding = 5;
+        this.playback = false;
         this.rh = 160;
         this.rw = 150;
         this.w = 200;
@@ -4347,6 +4348,9 @@ class Sankey {
         }
         if (options.orient !== undefined) {
             this.orient = options.orient;
+        }
+        if (options.playback !== undefined) {
+            this.playback = options.playback;
         }
         this.data(options.nodes, options.links)
             .initialise();
@@ -4461,37 +4465,54 @@ class Sankey {
      * spreads the nodes within layer
      */
     _positionNodeInLayer() {
-        let layer = 0, n = 0;
+        let layer = -1, n = 0;
+        let layerTracker = [];
         if (this.orient === "horizontal") {
             this.nodes.forEach((node) => {
                 if (layer === node.layer) {
                     node.y = n;
                     n += node.h + this.padding;
+                    layerTracker[layer].sum = n;
+                    layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.y = 0;
                     n = node.h + this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: this.rh });
                 }
             });
         }
         else {
             this.nodes.forEach((node) => {
-                node.w = this._scale(node.value);
                 if (layer === node.layer) {
-                    if (n + node.w > this.rw) { // does this node go beyond the bounds?
-                        n = node.w + this.padding;
-                    }
                     node.x = n;
                     n += node.w + this.padding;
+                    layerTracker[layer].sum = n;
+                    layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.x = 0;
                     n = node.w + this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: this.rw });
                 }
             });
         }
+        // 2nd pass to widen out layers too tightly clustered together
+        layerTracker.forEach(layer => {
+            if (layer.sum * 1.2 < layer.total) {
+                const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
+                layer.nodes.forEach((node, i) => {
+                    if (this.orient === "horizontal") {
+                        node.y += (i + 1) * customPad;
+                    }
+                    else {
+                        node.x += (i + 1) * customPad;
+                    }
+                });
+            }
+        });
     }
     /**
      * Sets height and width of node
@@ -4548,6 +4569,8 @@ class Sankey {
             margin: this.margin,
             width: this.w
         });
+        sg.classList.add("sankey");
+        sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
         select(sg).on("click", () => this.clearSelection());
     }
     _drawLabels() {
@@ -4602,7 +4625,9 @@ class Sankey {
         }
     }
     _drawLinks() {
-        const canvas = select(this.container).select(".canvas");
+        const svg = select(this.container).select("svg");
+        const id = svg.node().id;
+        const canvas = svg.select(".canvas");
         if (this.orient === "horizontal") {
             this._linkGenerator = linkHorizontal()
                 .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
@@ -4622,6 +4647,7 @@ class Sankey {
             .data(this.links)
             .enter()
             .append("g")
+            .attr("id", d => `${id}_${d.id}`)
             .attr("class", "link")
             .on("click", (d) => this._linkClickHandler(event.target));
         const path = linkCollection
@@ -4639,11 +4665,14 @@ class Sankey {
     }
     _drawNodes() {
         const self = this;
-        const canvas = select(this.container).select(".canvas");
+        const svg = select(this.container).select("svg");
+        const id = svg.node().id;
+        const canvas = svg.select(".canvas");
         const nodes = canvas.append("g")
             .selectAll("g.node")
             .data(this.nodes).enter()
             .append("g")
+            .attr("id", d => `${id}_${d.id}`)
             .attr("class", "node")
             .attr("transform", d => {
             return this.orient === "horizontal"
@@ -4740,6 +4769,7 @@ class Sankey {
             const l = link;
             l.nodeIn = this.nodes[link.source]; // replaces source in other sankey models
             l.nodeOut = this.nodes[link.target]; // ditto target
+            l.id = `${l.nodeIn.id}->${l.nodeOut.id}`;
             l.w = 0; // width
             l.y0 = 0; // value at source node (horizontal: top right y, vertical: bottom left x)
             l.y1 = 0; // value at target node (horizontal: bottom left y, vertical; top right x)

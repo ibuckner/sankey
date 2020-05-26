@@ -112,6 +112,7 @@ const App = function() {
     move();
     orientation();
     padding();
+    playback();
 
     const sankey = new chart.Sankey({
       container: document.getElementById("chart"),
@@ -122,7 +123,8 @@ const App = function() {
       nodes: json.nodes,
       nodeSize: 30,
       orient: document.getElementById("OrientLTR").checked ? "horizontal" : "vertical",
-      padding: 5
+      padding: 5,
+      playback: document.getElementById("Playback").checked
     });
 
     sankey.draw();
@@ -133,6 +135,9 @@ const App = function() {
       }
       if (e.detail.padding !== undefined) {
         sankey.padding = e.detail.padding;
+      }
+      if (e.detail.playback !== undefined) {
+        sankey.playback = e.detail.playback;
       }
       sankey.destroy().initialise().draw();
     });
@@ -194,6 +199,14 @@ const App = function() {
     padding.addEventListener("change", function(e) {
       const data = { padding: +e.target.value };
       label.textContent = data.padding;
+      window.dispatchEvent(new CustomEvent("sankey-reload", { detail: data }));
+    });
+  }
+
+  function playback() {
+    const playback = document.getElementById("Playback");
+    playback.addEventListener("change", function(e) {
+      const data = { playback: +e.target.value };
       window.dispatchEvent(new CustomEvent("sankey-reload", { detail: data }));
     });
   }

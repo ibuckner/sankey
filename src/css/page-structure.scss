@@ -10,6 +10,11 @@ body {
   overflow: hidden;
 }
 
+input,
+label {
+  cursor: pointer;
+}
+
 svg {
   font-weight: normal;
 }
