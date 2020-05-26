@@ -56,8 +56,7 @@ export class Sankey {
   private _extent: [number, number] = [0, 0]; // min/max node values
   private _linkGenerator: Function = () => true;
   private _scale: any;
-  private _stepX: number[] = [];              // available gaps across x-axis
-  private _stepY: number[] = [];              // available gaps across y-axis
+  private _layerGap: number = 0;
   private _totalLayers: number = 0;
 
   constructor(options: TSankeyOptions) {
@@ -112,7 +111,7 @@ export class Sankey {
    * @param links - Sankey links
    */
   public data(nodes: TNode[], links: TLink[]): Sankey {
-    this._initNodeLink(nodes, links);
+    this._initDataStructure(nodes, links);
     return this;
   }
 
@@ -140,15 +139,11 @@ export class Sankey {
    */
   public initialise(): Sankey {
     this._nodeValueLayer();
-    this._calculations();
-    if (this.orient === "horizontal") {
-      this._adjustNodesHX();
-      this._adjustNodesHY();
-    } else {
-      this._adjustNodesVY();
-      this._adjustNodesVX();
-    }
-    this._adjustLinks();
+    this._setScale();
+    this._setNodeSize();
+    this._positionNodeByLayer();
+    this._positionNodeInLayer();
+    this._positionLinks();
     return this;
   }
 
@@ -164,11 +159,9 @@ export class Sankey {
   // ***** PRIVATE METHODS
 
   /**
-   * Currently in horizontal orientations
-   * y0 is the top y value of link at source node
-   * y1 is the bottom y value of link at target node
+   * Positions links relative to sourcec and destination nodes
    */
-  private _adjustLinks(): void {
+  private _positionLinks(): void {
     // sort: by size then by a-z name
     this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
 
@@ -193,114 +186,115 @@ export class Sankey {
     });
   }
 
-  private _adjustNodesHX(): void {
-    this.nodes.forEach((node: TNode) => {
-      node.h = this._scale(node.value);
-      node.w = this.nodeSize;
-      node.x = node.layer * this._stepX[0];
-      if (node.x >= this.rw) {
-        node.x -= this.nodeSize;
-      } else if (node.x < 0) {
-        node.x = 0;
-      }
-    });
+  /**
+   * spreads the nodes across the chart space by layer
+   */
+  private _positionNodeByLayer(): void {
+    if (this.orient === "horizontal") {
+      this.nodes.forEach((node: TNode) => {
+        node.x = node.layer * this._layerGap;
+        if (node.x >= this.rw) {
+          node.x -= this.nodeSize;
+        } else if (node.x < 0) {
+          node.x = 0;
+        }
+      });
+    } else {
+      this.nodes.forEach((node: TNode) => {
+        node.y = node.layer * this._layerGap;
+        if (node.y >= this.rh) {
+          node.y -= this.nodeSize;
+        } else if (node.y < 0) {
+          node.y = 0;
+        }
+      });
+    }
   }
 
-  private _adjustNodesHY(): void {
-    let y = 0, layer = 0, shiftColumn = false;
+  /**
+   * spreads the nodes within layer
+   */
+  private _positionNodeInLayer(): void {
+    let layer = 0, n = 0;
+    if (this.orient === "horizontal") {
+      this.nodes.forEach((node: TNode) => {
+        if (layer === node.layer) {
+          node.y = n;
+          n += node.h + this.padding;
+        } else {
+          layer = node.layer;
+          node.y = 0;
+          n = node.h + this.padding;
+        }
+      });
+    } else {
+      this.nodes.forEach((node: TNode) => {
+        node.w = this._scale(node.value);
+        if (layer === node.layer) {
+          if (n + node.w > this.rw) { // does this node go beyond the bounds?
+            n = node.w + this.padding;
+          }
+          node.x = n;
+          n += node.w + this.padding;
+        } else {
+          layer = node.layer;
+          node.x = 0;
+          n = node.w + this.padding;
+        }
+      });
+    }
+  }
+
+  /**
+   * Sets height and width of node
+   */
+  private _setNodeSize(): void {
     this.nodes.forEach((node: TNode) => {
-      if (layer === node.layer) {
-        if (y + node.h > this.rh) { // does this node go beyond the bounds?
-          shiftColumn = true;
-          y = node.h + this.padding;
-        }
-        if (shiftColumn) {
-          node.x -= (node.w * 5);
-        }
-        node.y = y;
-        y += node.h + this.padding;
+      if (this.orient === "horizontal") {
+        node.h = this._scale(node.value);
+        node.w = this.nodeSize;
       } else {
-        shiftColumn = false;
-        layer = node.layer;
-        node.y = 0;
-        y = node.h + this.padding;
+        node.h = this.nodeSize;
+        node.w = this._scale(node.value);
       }
     });
   }
 
-  private _adjustNodesVX(): void {
-    let x = 0, layer = 0, shiftColumn = false;
-    this.nodes.forEach((node: TNode) => {
-      node.w = this._scale(node.value);
-      if (layer === node.layer) {
-        if (x + node.w > this.rw) { // does this node go beyond the bounds?
-          shiftColumn = true;
-          x = node.w + this.padding;
-        }
-        if (shiftColumn) {
-          node.y -= (node.h * 2.5);
-        }
-        node.x = x;
-        x += node.w + this.padding;
-      } else {
-        shiftColumn = false;
-        layer = node.layer;
-        node.x = 0;
-        x = node.w + this.padding;
-      }
-    });
+  /**
+   * Determines the scale and layer gap of nodes
+   */
+  private _setScale(): void {
+    this._calcScalingExtent();
+    this._calcScaling();
   }
 
-  private _adjustNodesVY(): void {
-    this.nodes.forEach((node: TNode) => {
-      node.h = this.nodeSize;
-      node.w = this._scale(node.value);
-      node.y = node.layer * this._stepY[0];
-      if (node.y >= this.rh) {
-        node.y -= this.nodeSize;
-      } else if (node.y < 0) {
-        node.y = 0;
-      }
-    });
+  /**
+   * Calculates the chart scale
+   */
+  private _calcScaling() {
+    const rng: [number, number] = [0, this.orient === "horizontal" ? this.rh : this.rw];
+    this._scale = scaleLinear()
+      .domain([0, this._extent[1]])
+      .range(rng);
   }
 
-  private _calculations(): void {
-    // minimum number
-    this._extent[0] = this.nodes.reduce((ac: number, n: TNode) => ( ac === undefined || n.value < ac ) ? n.value : ac, 0);
-
-    // maximum number
+  /**
+   * Determines the minimum and maximum extent values to scale nodes by
+   */
+  private _calcScalingExtent() {
+    this._extent[0] = this.nodes.reduce((ac: number, n: TNode) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
     let max = this._extent[0], layer = 0, runningTotal = 0;
     this.nodes.forEach((node: TNode) => {
       if (node.layer === layer) {
         runningTotal += node.value;
-      } else {
+      }
+      else {
         layer = node.layer;
         max = runningTotal > max ? runningTotal : max;
         runningTotal = node.value;
       }
     });
-    this._extent[1] = (runningTotal > max ? runningTotal : max) * 1.1;    
-
-    const s = this.nodes.reduce((ac: any, n: TNode) => {ac[n.layer] = (ac[n.layer] || 0) + 1; return ac; }, {});
-    for (let [k, v] of Object.entries(s)) {
-      if (this.orient === "horizontal") {
-        // @ts-ignore
-        this._stepY[k] = this.rh / v;
-      } else {
-        // @ts-ignore
-        this._stepX[k] = this.rw / v;
-      }
-    }
-    if (this.orient === "horizontal") {
-      this._stepX[0] = this.rw / this._totalLayers;
-    } else {
-      this._stepY[0] = this.rh / this._totalLayers;
-    }
-
-    const rng: [number, number] = this.orient === "horizontal" ? [0, this.rh] : [0, this.rw];
-    this._scale = scaleLinear()
-      .domain([0, this._extent[1]])
-      .range(rng);
+    this._extent[1] = (runningTotal > max ? runningTotal : max) + (this.padding * (this.nodes.length * 2.5));
   }
 
   private _drawCanvas(): any {
@@ -430,8 +424,8 @@ export class Sankey {
 
     const rect = nodes.append("rect")
       .attr("class", "node")
-      .attr("height", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this._scale(d.value) : this.nodeSize)) + "px")
-      .attr("width", (d: TNode) => Math.max(1, (this.orient === "horizontal" ? this.nodeSize : this._scale(d.value))) + "px")
+      .attr("height", (d: TNode) => d.h + "px")
+      .attr("width", (d: TNode) => d.w + "px")
       .attr("fill", (d: TNode) => d.fill)
       .attr("x", 0)
       .attr("y", 0)
@@ -479,7 +473,7 @@ export class Sankey {
           return `translate(${d.x}, ${d.y})`;
         });
   
-      self._adjustLinks();
+      self._positionLinks();
       selectAll("path.link")
         .attr("d", d => self._linkGenerator(d));
     }
@@ -494,27 +488,30 @@ export class Sankey {
     }
   }
 
-  private _initNodeLink(nodes: TNode[], links: TLink[]): void {
+  /**
+   * Creates the initial data structures
+   */
+  private _initDataStructure(nodes: TNode[], links: TLink[]): void {
     nodes.forEach((node: TNode, i: number) => {
       const n = node;
-      n.h = 0;
+      n.h = 0;          // height
       n.id = i;
-      n.layer = -1;
-      n.linksIn = [];
-      n.linksOut = [];
-      n.w = 0;
-      n.x = 0;
+      n.layer = -1;     // denotes membership to a visual grouping
+      n.linksIn = [];   // replaces source in other sankey models
+      n.linksOut = [];  // ditto target
+      n.w = 0;          // width
+      n.x = 0;          // position onscreen
       n.y = 0;
       this.nodes.push(n);
     });
 
     links.forEach((link: TLink, i: number) => {
       const l = link;
-      l.nodeIn = this.nodes[link.source];
-      l.nodeOut = this.nodes[link.target];
-      l.w = 0;
-      l.y0 = 0;
-      l.y1 = 0;
+      l.nodeIn = this.nodes[link.source];   // replaces source in other sankey models
+      l.nodeOut = this.nodes[link.target];  // ditto target
+      l.w = 0;    // width
+      l.y0 = 0;   // value at source node (horizontal: top right y, vertical: bottom left x)
+      l.y1 = 0;   // value at target node (horizontal: bottom left y, vertical; top right x)
       this.links.push(l);
       this.links[i].nodeIn.linksOut.push(this.links[i]);
       this.links[i].nodeOut.linksIn.push(this.links[i]);
@@ -541,6 +538,9 @@ export class Sankey {
       });
   }
 
+  /**
+   * Determines each node dimension and layer attribution and finally determines node order within layer
+   */
   private _nodeValueLayer(): void {
     const track: Map<number, number[]> = new Map();
     let max = 0;
@@ -577,6 +577,8 @@ export class Sankey {
     });
 
     this._totalLayers = max;
+
+    this._layerGap = (this.orient === "horizontal" ? this.rw : this.rh) / this._totalLayers;
 
     // sort: by layer asc then by size then by a-z name
     this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));

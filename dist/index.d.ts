@@ -57,8 +57,7 @@ export declare class Sankey {
     private _extent;
     private _linkGenerator;
     private _scale;
-    private _stepX;
-    private _stepY;
+    private _layerGap;
     private _totalLayers;
     constructor(options: TSankeyOptions);
     /**
@@ -88,22 +87,45 @@ export declare class Sankey {
      */
     toString(): string;
     /**
-     * Currently in horizontal orientations
-     * y0 is the top y value of link at source node
-     * y1 is the bottom y value of link at target node
+     * Positions links relative to sourcec and destination nodes
      */
-    private _adjustLinks;
-    private _adjustNodesHX;
-    private _adjustNodesHY;
-    private _adjustNodesVX;
-    private _adjustNodesVY;
-    private _calculations;
+    private _positionLinks;
+    /**
+     * spreads the nodes across the chart space by layer
+     */
+    private _positionNodeByLayer;
+    /**
+     * spreads the nodes within layer
+     */
+    private _positionNodeInLayer;
+    /**
+     * Sets height and width of node
+     */
+    private _setNodeSize;
+    /**
+     * Determines the scale and layer gap of nodes
+     */
+    private _setScale;
+    /**
+     * Calculates the chart scale
+     */
+    private _calcScaling;
+    /**
+     * Determines the minimum and maximum extent values to scale nodes by
+     */
+    private _calcScalingExtent;
     private _drawCanvas;
     private _drawLabels;
     private _drawLinks;
     private _drawNodes;
-    private _initNodeLink;
+    /**
+     * Creates the initial data structures
+     */
+    private _initDataStructure;
     private _linkClickHandler;
     private _nodeClickHandler;
+    /**
+     * Determines each node dimension and layer attribution and finally determines node order within layer
+     */
     private _nodeValueLayer;
 }
