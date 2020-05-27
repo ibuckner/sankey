@@ -4504,7 +4504,7 @@ var chart = (function (exports) {
           }
           // 2nd pass to widen out layers too tightly clustered together
           layerTracker.forEach(layer => {
-              if (layer.sum * 1.2 < layer.total) {
+              if (layer.sum * 1.2 < layer.total && layer.nodes.length > 1) {
                   const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
                   layer.nodes.forEach((node, i) => {
                       if (this.orient === "horizontal") {
