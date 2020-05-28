@@ -308,38 +308,28 @@ export class Sankey {
 
   private _drawMisc(): Sankey {
     const container = select(this.container);
-    const defs = container.select("defs");
+    const box = measure(this.container);
     const canvas = container.select(".canvas");
+
     if (this.playback) {
       const pb = canvas.append("g")
         .attr("class", "playback-prompt");
 
-      const rect = pb.append("rect")
+      const rect = container.append("div")
         .attr("class", "playback-prompt")
-        .attr("height", (this.rh / 3) + "px")
-        .attr("width", (this.rw / 2) + "px")
-        .attr("x", this.rw / 4)
-        .attr("y", this.rh / 3)
-        .attr("opacity", 0);
-
-      const text = pb.append("text")
-        .attr("class", "playback-prompt")
-        .attr("x", this.rw / 2)
-        .attr("y", this.rh / 2)
-        .attr("opacity", 0)
+        .style("opacity", 1)
         .text("Select a node to start");
 
+      const b: DOMRect = rect.node()?.getBoundingClientRect() as DOMRect;
+      rect.style("top", (box.top + (box.height / 2) - (b.height / 2))+ "px")
+          .style("left", (box.left + (box.width / 2) - (b.width / 2)) + "px");
+
       rect.transition().duration(3000)
-        .attr("opacity", 1)
+        .style("opacity", 1)
         .transition().duration(5000)
-        .attr("opacity", 0)
+        .style("opacity", 0)
         .transition().delay(5500)
         .remove();
-
-      text.transition().duration(3000)
-        .attr("opacity", 1)
-        .transition().duration(5000)
-        .attr("opacity", 0);
 
       pb.transition().delay(9000)
         .remove();
