@@ -91,6 +91,7 @@ export declare class Sankey {
     private _drawCanvas;
     private _drawLabels;
     private _drawLinks;
+    private _drawMisc;
     private _drawNodes;
     /**
      * Creates the initial data structures

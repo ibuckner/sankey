@@ -1,25 +1,40 @@
-.shadow {
+rect.node.shadow {
   fill: #999 !important;
   fill-opacity: 1 !important;
   transition: height 500ms ease-out, width 500ms ease-out;
 }
 
-.link.fade > path {
+rect.playback-prompt {
+  fill: #fff;
+}
+
+circle.playback-prompt {
+  fill: #900;
+  fill-opacity: 0.5;
+}
+
+text.playback-prompt {
+  fill: #000;
+  font-size: 1.2em;
+  text-anchor: middle;
+}
+
+g.link.shadow > path {
   stroke: #999 !important;
   stroke-opacity: 0.1 !important;
 }
 
-.link {
+path.link {
   stroke-opacity: 0.3;
   transition: stroke-opacity 500ms;
 }
 
-.link:hover {
+path.link:hover {
   cursor: pointer;
   stroke-opacity: 0.7;
 }
 
-.link.selected {
+path.link.selected {
   stroke-opacity: 1;
 }
 

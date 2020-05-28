@@ -4704,7 +4704,8 @@ class Sankey {
         this._drawCanvas()
             ._drawNodes()
             ._drawLinks()
-            ._drawLabels();
+            ._drawLabels()
+            ._drawMisc();
         return this;
     }
     /**
@@ -4743,7 +4744,7 @@ class Sankey {
     _drawLabels() {
         const canvas = select(this.container).select(".canvas");
         const nodes = canvas.selectAll("g.node");
-        const fade = this.playback ? " fade" : "";
+        const fade = this.playback ? " shadow" : "";
         const outerLabel = nodes.append("text")
             .attr("class", (d) => "node-label" + (d.layer > 0 ? fade : ""))
             .attr("dy", "0.35em")
@@ -4796,7 +4797,7 @@ class Sankey {
         const svg = select(this.container).select("svg");
         const id = svg.node().id;
         const canvas = svg.select(".canvas");
-        const fade = this.playback ? " fade" : "";
+        const fade = this.playback ? " shadow" : "";
         if (this.orient === "horizontal") {
             this._linkGenerator = linkHorizontal()
                 .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
@@ -4834,12 +4835,60 @@ class Sankey {
             .attr("d", d => this._linkGenerator(d));
         return this;
     }
+    _drawMisc() {
+        const canvas = select(this.container).select(".canvas");
+        if (this.playback) {
+            const pb = canvas.append("g")
+                .attr("class", "playback-prompt");
+            const rect = pb.append("rect")
+                .attr("class", "playback-prompt")
+                .attr("height", (this.rh / 2) + "px")
+                .attr("width", (this.rw / 2) + "px")
+                .attr("x", this.rw / 4)
+                .attr("y", this.rh / 4)
+                .attr("opacity", 0);
+            const text = pb.append("text")
+                .attr("class", "playback-prompt")
+                .attr("x", this.rw / 2)
+                .attr("y", this.rh / 2)
+                .attr("opacity", 0)
+                .text("Select a node to start");
+            rect.transition().duration(3000)
+                .attr("opacity", 1)
+                .transition().duration(5000)
+                .attr("opacity", 0)
+                .transition().delay(5500)
+                .remove();
+            text.transition().duration(3000)
+                .attr("opacity", 1)
+                .transition().duration(5000)
+                .attr("opacity", 0);
+            pb.transition().delay(9000)
+                .remove();
+            canvas.selectAll("g.node")
+                .each((d) => {
+                const c = pb.append("circle")
+                    .attr("class", "playback-prompt")
+                    .attr("cx", d.x + (d.w / 2))
+                    .attr("cy", d.y + (d.h / 2))
+                    .attr("r", 0);
+                c.lower();
+                c.transition().duration(3000)
+                    .attr("r", 20)
+                    .transition().duration(5000)
+                    .attr("r", 0)
+                    .transition().delay(5500)
+                    .remove();
+            });
+        }
+        return this;
+    }
     _drawNodes() {
         const self = this;
         const svg = select(this.container).select("svg");
         const id = svg.node().id;
         const canvas = svg.select(".canvas");
-        const fade = this.playback ? " fade" : "";
+        const fade = this.playback ? " shadow" : "";
         const nodes = canvas.append("g")
             .attr("class", "nodes")
             .selectAll("g.node")
@@ -4970,17 +5019,15 @@ class Sankey {
         this.clearSelection();
         const activeNode = select(el);
         const dt = activeNode.datum();
-        if (this.playback) {
-            activeNode.classed("fade", false);
+        if (this.playback && dt.linksOut.length > 0) {
+            activeNode.classed("shadow", false);
             const nMap = new Map();
-            if (dt.linksIn.length === 0) {
-                nMap.set(el.id, dt.value);
-            }
-            selectAll("g.link.fade")
+            nMap.set(el.id, dt.value);
+            selectAll("g.link.shadow")
                 .each((d, i, n) => {
                 if (d.nodeIn === dt) {
                     const link = select(n[i]);
-                    link.classed("fade", false);
+                    link.classed("shadow", false);
                     let id = link.attr("id");
                     id = id.replace(/_\d+\->/, "_");
                     let sum = d.value;
@@ -4992,7 +5039,7 @@ class Sankey {
             });
             for (let [k, v] of nMap.entries()) {
                 const node = select("#" + k);
-                node.classed("fade", false);
+                node.classed("shadow", false);
                 const shadow = node.select(".shadow");
                 if (this.orient === "horizontal") {
                     let h = parseFloat(shadow.attr("height"));
