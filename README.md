@@ -17,12 +17,13 @@ const sankey = new Sankey({
   container: document.getElementById("chart"),
   links: data.links,
   margin: { bottom: 20, left: 20, right: 20, top: 20 },
-  nodeMoveX: true,
+  nodeMoveX: true,      // if true, nodes can be dragged
   nodeMoveY: true,
   nodes: data.nodes,
-  nodeSize: 30,
-  orient: "horizontal" // or "vertical"
-  padding: 5
+  nodeSize: 30,         // node dimension not set by data
+  orient: "horizontal"  // or "vertical"
+  padding: 5,           // gap between nodes
+  playback: false       // standard sankey, or playback mode if true
 });
 ```
 
@@ -80,6 +81,9 @@ sankey.orient;
 
 sankey.padding;
 // padding between the nodes
+
+sankey.playback;
+// controls mode of chart display
 
 sankey.rh;
 // relative height, height - margins

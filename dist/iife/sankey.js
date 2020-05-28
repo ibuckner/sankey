@@ -3743,6 +3743,316 @@ var chart = (function (exports) {
     return drag;
   }
 
+  // Computes the decimal coefficient and exponent of the specified number x with
+  // significant digits p, where x is positive and p is in [1, 21] or undefined.
+  // For example, formatDecimal(1.23) returns ["123", 0].
+  function formatDecimal$1(x, p) {
+    if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
+    var i, coefficient = x.slice(0, i);
+
+    // The string returned by toExponential either has the form \d\.\d+e[-+]\d+
+    // (e.g., 1.2e+3) or the form \de[-+]\d+ (e.g., 1e+3).
+    return [
+      coefficient.length > 1 ? coefficient[0] + coefficient.slice(2) : coefficient,
+      +x.slice(i + 1)
+    ];
+  }
+
+  function exponent$1(x) {
+    return x = formatDecimal$1(Math.abs(x)), x ? x[1] : NaN;
+  }
+
+  function formatGroup$1(grouping, thousands) {
+    return function(value, width) {
+      var i = value.length,
+          t = [],
+          j = 0,
+          g = grouping[0],
+          length = 0;
+
+      while (i > 0 && g > 0) {
+        if (length + g + 1 > width) g = Math.max(1, width - length);
+        t.push(value.substring(i -= g, i + g));
+        if ((length += g + 1) > width) break;
+        g = grouping[j = (j + 1) % grouping.length];
+      }
+
+      return t.reverse().join(thousands);
+    };
+  }
+
+  function formatNumerals$1(numerals) {
+    return function(value) {
+      return value.replace(/[0-9]/g, function(i) {
+        return numerals[+i];
+      });
+    };
+  }
+
+  // [[fill]align][sign][symbol][0][width][,][.precision][~][type]
+  var re$1 = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
+
+  function formatSpecifier$1(specifier) {
+    if (!(match = re$1.exec(specifier))) throw new Error("invalid format: " + specifier);
+    var match;
+    return new FormatSpecifier$1({
+      fill: match[1],
+      align: match[2],
+      sign: match[3],
+      symbol: match[4],
+      zero: match[5],
+      width: match[6],
+      comma: match[7],
+      precision: match[8] && match[8].slice(1),
+      trim: match[9],
+      type: match[10]
+    });
+  }
+
+  formatSpecifier$1.prototype = FormatSpecifier$1.prototype; // instanceof
+
+  function FormatSpecifier$1(specifier) {
+    this.fill = specifier.fill === undefined ? " " : specifier.fill + "";
+    this.align = specifier.align === undefined ? ">" : specifier.align + "";
+    this.sign = specifier.sign === undefined ? "-" : specifier.sign + "";
+    this.symbol = specifier.symbol === undefined ? "" : specifier.symbol + "";
+    this.zero = !!specifier.zero;
+    this.width = specifier.width === undefined ? undefined : +specifier.width;
+    this.comma = !!specifier.comma;
+    this.precision = specifier.precision === undefined ? undefined : +specifier.precision;
+    this.trim = !!specifier.trim;
+    this.type = specifier.type === undefined ? "" : specifier.type + "";
+  }
+
+  FormatSpecifier$1.prototype.toString = function() {
+    return this.fill
+        + this.align
+        + this.sign
+        + this.symbol
+        + (this.zero ? "0" : "")
+        + (this.width === undefined ? "" : Math.max(1, this.width | 0))
+        + (this.comma ? "," : "")
+        + (this.precision === undefined ? "" : "." + Math.max(0, this.precision | 0))
+        + (this.trim ? "~" : "")
+        + this.type;
+  };
+
+  // Trims insignificant zeros, e.g., replaces 1.2000k with 1.2k.
+  function formatTrim$1(s) {
+    out: for (var n = s.length, i = 1, i0 = -1, i1; i < n; ++i) {
+      switch (s[i]) {
+        case ".": i0 = i1 = i; break;
+        case "0": if (i0 === 0) i0 = i; i1 = i; break;
+        default: if (!+s[i]) break out; if (i0 > 0) i0 = 0; break;
+      }
+    }
+    return i0 > 0 ? s.slice(0, i0) + s.slice(i1 + 1) : s;
+  }
+
+  var prefixExponent$1;
+
+  function formatPrefixAuto$1(x, p) {
+    var d = formatDecimal$1(x, p);
+    if (!d) return x + "";
+    var coefficient = d[0],
+        exponent = d[1],
+        i = exponent - (prefixExponent$1 = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1,
+        n = coefficient.length;
+    return i === n ? coefficient
+        : i > n ? coefficient + new Array(i - n + 1).join("0")
+        : i > 0 ? coefficient.slice(0, i) + "." + coefficient.slice(i)
+        : "0." + new Array(1 - i).join("0") + formatDecimal$1(x, Math.max(0, p + i - 1))[0]; // less than 1y!
+  }
+
+  function formatRounded$1(x, p) {
+    var d = formatDecimal$1(x, p);
+    if (!d) return x + "";
+    var coefficient = d[0],
+        exponent = d[1];
+    return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient
+        : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1)
+        : coefficient + new Array(exponent - coefficient.length + 2).join("0");
+  }
+
+  var formatTypes$1 = {
+    "%": function(x, p) { return (x * 100).toFixed(p); },
+    "b": function(x) { return Math.round(x).toString(2); },
+    "c": function(x) { return x + ""; },
+    "d": function(x) { return Math.round(x).toString(10); },
+    "e": function(x, p) { return x.toExponential(p); },
+    "f": function(x, p) { return x.toFixed(p); },
+    "g": function(x, p) { return x.toPrecision(p); },
+    "o": function(x) { return Math.round(x).toString(8); },
+    "p": function(x, p) { return formatRounded$1(x * 100, p); },
+    "r": formatRounded$1,
+    "s": formatPrefixAuto$1,
+    "X": function(x) { return Math.round(x).toString(16).toUpperCase(); },
+    "x": function(x) { return Math.round(x).toString(16); }
+  };
+
+  function identity$3(x) {
+    return x;
+  }
+
+  var map$1 = Array.prototype.map,
+      prefixes$1 = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
+
+  function formatLocale$1(locale) {
+    var group = locale.grouping === undefined || locale.thousands === undefined ? identity$3 : formatGroup$1(map$1.call(locale.grouping, Number), locale.thousands + ""),
+        currencyPrefix = locale.currency === undefined ? "" : locale.currency[0] + "",
+        currencySuffix = locale.currency === undefined ? "" : locale.currency[1] + "",
+        decimal = locale.decimal === undefined ? "." : locale.decimal + "",
+        numerals = locale.numerals === undefined ? identity$3 : formatNumerals$1(map$1.call(locale.numerals, String)),
+        percent = locale.percent === undefined ? "%" : locale.percent + "",
+        minus = locale.minus === undefined ? "-" : locale.minus + "",
+        nan = locale.nan === undefined ? "NaN" : locale.nan + "";
+
+    function newFormat(specifier) {
+      specifier = formatSpecifier$1(specifier);
+
+      var fill = specifier.fill,
+          align = specifier.align,
+          sign = specifier.sign,
+          symbol = specifier.symbol,
+          zero = specifier.zero,
+          width = specifier.width,
+          comma = specifier.comma,
+          precision = specifier.precision,
+          trim = specifier.trim,
+          type = specifier.type;
+
+      // The "n" type is an alias for ",g".
+      if (type === "n") comma = true, type = "g";
+
+      // The "" type, and any invalid type, is an alias for ".12~g".
+      else if (!formatTypes$1[type]) precision === undefined && (precision = 12), trim = true, type = "g";
+
+      // If zero fill is specified, padding goes after sign and before digits.
+      if (zero || (fill === "0" && align === "=")) zero = true, fill = "0", align = "=";
+
+      // Compute the prefix and suffix.
+      // For SI-prefix, the suffix is lazily computed.
+      var prefix = symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
+          suffix = symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "";
+
+      // What format function should we use?
+      // Is this an integer type?
+      // Can this type generate exponential notation?
+      var formatType = formatTypes$1[type],
+          maybeSuffix = /[defgprs%]/.test(type);
+
+      // Set the default precision if not specified,
+      // or clamp the specified precision to the supported range.
+      // For significant precision, it must be in [1, 21].
+      // For fixed precision, it must be in [0, 20].
+      precision = precision === undefined ? 6
+          : /[gprs]/.test(type) ? Math.max(1, Math.min(21, precision))
+          : Math.max(0, Math.min(20, precision));
+
+      function format(value) {
+        var valuePrefix = prefix,
+            valueSuffix = suffix,
+            i, n, c;
+
+        if (type === "c") {
+          valueSuffix = formatType(value) + valueSuffix;
+          value = "";
+        } else {
+          value = +value;
+
+          // Determine the sign. -0 is not less than 0, but 1 / -0 is!
+          var valueNegative = value < 0 || 1 / value < 0;
+
+          // Perform the initial formatting.
+          value = isNaN(value) ? nan : formatType(Math.abs(value), precision);
+
+          // Trim insignificant zeros.
+          if (trim) value = formatTrim$1(value);
+
+          // If a negative value rounds to zero after formatting, and no explicit positive sign is requested, hide the sign.
+          if (valueNegative && +value === 0 && sign !== "+") valueNegative = false;
+
+          // Compute the prefix and suffix.
+          valuePrefix = (valueNegative ? (sign === "(" ? sign : minus) : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
+          valueSuffix = (type === "s" ? prefixes$1[8 + prefixExponent$1 / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
+
+          // Break the formatted value into the integer “value” part that can be
+          // grouped, and fractional or exponential “suffix” part that is not.
+          if (maybeSuffix) {
+            i = -1, n = value.length;
+            while (++i < n) {
+              if (c = value.charCodeAt(i), 48 > c || c > 57) {
+                valueSuffix = (c === 46 ? decimal + value.slice(i + 1) : value.slice(i)) + valueSuffix;
+                value = value.slice(0, i);
+                break;
+              }
+            }
+          }
+        }
+
+        // If the fill character is not "0", grouping is applied before padding.
+        if (comma && !zero) value = group(value, Infinity);
+
+        // Compute the padding.
+        var length = valuePrefix.length + value.length + valueSuffix.length,
+            padding = length < width ? new Array(width - length + 1).join(fill) : "";
+
+        // If the fill character is "0", grouping is applied after padding.
+        if (comma && zero) value = group(padding + value, padding.length ? width - valueSuffix.length : Infinity), padding = "";
+
+        // Reconstruct the final output based on the desired alignment.
+        switch (align) {
+          case "<": value = valuePrefix + value + valueSuffix + padding; break;
+          case "=": value = valuePrefix + padding + value + valueSuffix; break;
+          case "^": value = padding.slice(0, length = padding.length >> 1) + valuePrefix + value + valueSuffix + padding.slice(length); break;
+          default: value = padding + valuePrefix + value + valueSuffix; break;
+        }
+
+        return numerals(value);
+      }
+
+      format.toString = function() {
+        return specifier + "";
+      };
+
+      return format;
+    }
+
+    function formatPrefix(specifier, value) {
+      var f = newFormat((specifier = formatSpecifier$1(specifier), specifier.type = "f", specifier)),
+          e = Math.max(-8, Math.min(8, Math.floor(exponent$1(value) / 3))) * 3,
+          k = Math.pow(10, -e),
+          prefix = prefixes$1[8 + e / 3];
+      return function(value) {
+        return f(k * value) + prefix;
+      };
+    }
+
+    return {
+      format: newFormat,
+      formatPrefix: formatPrefix
+    };
+  }
+
+  var locale$1;
+  var format$1;
+  var formatPrefix$1;
+
+  defaultLocale$1({
+    decimal: ".",
+    thousands: ",",
+    grouping: [3],
+    currency: ["$", ""],
+    minus: "-"
+  });
+
+  function defaultLocale$1(definition) {
+    locale$1 = formatLocale$1(definition);
+    format$1 = locale$1.format;
+    formatPrefix$1 = locale$1.formatPrefix;
+    return locale$1;
+  }
+
   var resizeObservers = [];
 
   var hasActiveObservations = function () {
@@ -4301,11 +4611,11 @@ var chart = (function (exports) {
       svg.appendChild(canvas);
       return svg;
   }
-
-  const format2 = format(",.2f"), format1 = format(",.1f"), format0 = format(",.0f");
+  const format2 = format$1(",.2f"), format1 = format$1(",.1f"), format0 = format$1(",.0f");
   function formatNumber(v) {
       return v < 1 ? format2(v) : v < 10 ? format1(v) : format0(v);
   }
+
   class Sankey {
       constructor(options) {
           this.container = document.querySelector("body");
@@ -4319,6 +4629,7 @@ var chart = (function (exports) {
           this.orient = "horizontal";
           this.padding = 5;
           this.playback = false;
+          this.playbackDelay = "1s";
           this.rh = 160;
           this.rw = 150;
           this.w = 200;
@@ -4327,7 +4638,12 @@ var chart = (function (exports) {
           this._layerGap = 0;
           this._totalLayers = 0;
           if (options.margin !== undefined) {
-              this.margin = options.margin;
+              let m = options.margin;
+              m.left = isNaN(m.left) ? 0 : m.left;
+              m.right = isNaN(m.right) ? 0 : m.right;
+              m.top = isNaN(m.top) ? 0 : m.top;
+              m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
+              this.margin = m;
           }
           if (options.container !== undefined) {
               this.container = options.container;
@@ -4354,6 +4670,9 @@ var chart = (function (exports) {
           }
           if (options.playback !== undefined) {
               this.playback = options.playback;
+          }
+          if (options.playbackDelay !== undefined) {
+              this.playbackDelay = options.playbackDelay;
           }
           this.data(options.nodes, options.links)
               .initialise();
@@ -4385,22 +4704,23 @@ var chart = (function (exports) {
        * draws the Sankey
        */
       draw() {
-          this._drawCanvas();
-          this._drawLinks();
-          this._drawNodes();
-          this._drawLabels();
+          this._drawCanvas()
+              ._drawNodes()
+              ._drawLinks()
+              ._drawLabels();
           return this;
       }
       /**
        * Recalculate internal values
        */
       initialise() {
-          this._nodeValueLayer();
-          this._setScale();
-          this._setNodeSize();
-          this._positionNodeByLayer();
-          this._positionNodeInLayer();
-          this._positionLinks();
+          this._nodeValueLayer()
+              ._scalingExtent()
+              ._scaling()
+              ._nodeSize()
+              ._positionNodeByLayer()
+              ._positionNodeInLayer()
+              ._positionLinks();
           return this;
       }
       /**
@@ -4412,160 +4732,6 @@ var chart = (function (exports) {
           return `nodes:\n${nodes}\n\nlinks:\n${links}`;
       }
       // ***** PRIVATE METHODS
-      /**
-       * Positions links relative to sourcec and destination nodes
-       */
-      _positionLinks() {
-          // sort: by size then by a-z name
-          this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
-          const source = new Map();
-          const target = new Map();
-          this.links.forEach((link) => {
-              let src = 0, tgt = 0;
-              link.w = Math.max(1, this._scale(link.value));
-              if (!source.has(link.nodeIn.id)) {
-                  source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
-              }
-              if (!target.has(link.nodeOut.id)) {
-                  target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
-              }
-              src = source.get(link.nodeIn.id);
-              link.y0 = src + (link.w / 2);
-              tgt = target.get(link.nodeOut.id);
-              link.y1 = tgt + (link.w / 2);
-              source.set(link.nodeIn.id, link.y0 + (link.w / 2));
-              target.set(link.nodeOut.id, link.y1 + (link.w / 2));
-          });
-      }
-      /**
-       * spreads the nodes across the chart space by layer
-       */
-      _positionNodeByLayer() {
-          if (this.orient === "horizontal") {
-              this.nodes.forEach((node) => {
-                  node.x = node.layer * this._layerGap;
-                  if (node.x >= this.rw) {
-                      node.x -= this.nodeSize;
-                  }
-                  else if (node.x < 0) {
-                      node.x = 0;
-                  }
-              });
-          }
-          else {
-              this.nodes.forEach((node) => {
-                  node.y = node.layer * this._layerGap;
-                  if (node.y >= this.rh) {
-                      node.y -= this.nodeSize;
-                  }
-                  else if (node.y < 0) {
-                      node.y = 0;
-                  }
-              });
-          }
-      }
-      /**
-       * spreads the nodes within layer
-       */
-      _positionNodeInLayer() {
-          let layer = -1, n = 0;
-          let layerTracker = [];
-          if (this.orient === "horizontal") {
-              this.nodes.forEach((node) => {
-                  if (layer === node.layer) {
-                      node.y = n;
-                      n += node.h + this.padding;
-                      layerTracker[layer].sum = n;
-                      layerTracker[layer].nodes.push(node);
-                  }
-                  else {
-                      layer = node.layer;
-                      node.y = 0;
-                      n = node.h + this.padding;
-                      layerTracker.push({ nodes: [node], sum: n, total: this.rh });
-                  }
-              });
-          }
-          else {
-              this.nodes.forEach((node) => {
-                  if (layer === node.layer) {
-                      node.x = n;
-                      n += node.w + this.padding;
-                      layerTracker[layer].sum = n;
-                      layerTracker[layer].nodes.push(node);
-                  }
-                  else {
-                      layer = node.layer;
-                      node.x = 0;
-                      n = node.w + this.padding;
-                      layerTracker.push({ nodes: [node], sum: n, total: this.rw });
-                  }
-              });
-          }
-          // 2nd pass to widen out layers too tightly clustered together
-          layerTracker.forEach(layer => {
-              if (layer.sum * 1.2 < layer.total && layer.nodes.length > 1) {
-                  const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
-                  layer.nodes.forEach((node, i) => {
-                      if (this.orient === "horizontal") {
-                          node.y += (i + 1) * customPad;
-                      }
-                      else {
-                          node.x += (i + 1) * customPad;
-                      }
-                  });
-              }
-          });
-      }
-      /**
-       * Sets height and width of node
-       */
-      _setNodeSize() {
-          this.nodes.forEach((node) => {
-              if (this.orient === "horizontal") {
-                  node.h = this._scale(node.value);
-                  node.w = this.nodeSize;
-              }
-              else {
-                  node.h = this.nodeSize;
-                  node.w = this._scale(node.value);
-              }
-          });
-      }
-      /**
-       * Determines the scale and layer gap of nodes
-       */
-      _setScale() {
-          this._calcScalingExtent();
-          this._calcScaling();
-      }
-      /**
-       * Calculates the chart scale
-       */
-      _calcScaling() {
-          const rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
-          this._scale = linear$1()
-              .domain([0, this._extent[1]])
-              .range(rng);
-      }
-      /**
-       * Determines the minimum and maximum extent values to scale nodes by
-       */
-      _calcScalingExtent() {
-          this._extent[0] = this.nodes.reduce((ac, n) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
-          let max = this._extent[0], layer = 0, runningTotal = 0;
-          this.nodes.forEach((node) => {
-              if (node.layer === layer) {
-                  runningTotal += node.value;
-              }
-              else {
-                  layer = node.layer;
-                  max = runningTotal > max ? runningTotal : max;
-                  runningTotal = node.value;
-              }
-          });
-          this._extent[1] = (runningTotal > max ? runningTotal : max) + (this.padding * (this.nodes.length * 2.5));
-      }
       _drawCanvas() {
           const sg = svg(this.container, {
               height: this.h,
@@ -4575,47 +4741,48 @@ var chart = (function (exports) {
           sg.classList.add("sankey");
           sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
           select(sg).on("click", () => this.clearSelection());
+          return this;
       }
       _drawLabels() {
           const canvas = select(this.container).select(".canvas");
           const nodes = canvas.selectAll("g.node");
+          const fade = this.playback ? " fade" : "";
           const outerLabel = nodes.append("text")
-              .attr("class", "node-label")
+              .attr("class", (d) => "node-label" + (d.layer > 0 ? fade : ""))
               .attr("dy", "0.35em")
               .attr("opacity", 0);
           if (this.orient === "horizontal") {
               outerLabel
                   .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
-                  .attr("y", (d) => this._scale(d.value) / 2)
+                  .attr("y", (d) => d.h / 2)
                   .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
-                  .style("opacity", (d) => this._scale(d.value) > 20 ? null : 0)
+                  .style("opacity", (d) => d.h > 20 ? null : 0)
                   .text((d) => d.name);
           }
           else {
               outerLabel
-                  .attr("x", (d) => this._scale(d.value) / 2)
+                  .attr("x", (d) => d.w / 2)
                   .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
                   .attr("text-anchor", "middle")
-                  .text((d) => this._scale(d.value) > d.name.length * 7 ? d.name : "");
+                  .text((d) => d.w > d.name.length * 7 ? d.name : "");
           }
           const innerLabel = nodes.append("text")
-              .attr("class", "node-label")
+              .attr("class", (d) => "node-label" + (d.layer > 0 ? fade : ""))
               .attr("dy", "0.35em")
+              .attr("text-anchor", "middle")
               .attr("opacity", 0);
           if (this.orient === "horizontal") {
               innerLabel
-                  .attr("x", (d) => -this._scale(d.value) / 2)
-                  .attr("y", (d) => this.nodeSize / 2)
-                  .attr("text-anchor", "middle")
+                  .attr("x", (d) => -d.h / 2)
+                  .attr("y", () => this.nodeSize / 2)
                   .attr("transform", "rotate(270)")
-                  .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+                  .text((d) => d.h > 50 ? formatNumber(d.value) : "");
           }
           else {
               innerLabel
-                  .attr("x", (d) => this._scale(d.value) / 2)
-                  .attr("y", (d) => this.nodeSize / 2)
-                  .attr("text-anchor", "middle")
-                  .text((d) => this._scale(d.value) > 50 ? formatNumber(d.value) : "");
+                  .attr("x", (d) => d.w / 2)
+                  .attr("y", () => this.nodeSize / 2)
+                  .text((d) => d.w > 50 ? formatNumber(d.value) : "");
           }
           const t1 = transition().duration(600);
           if (this.orient === "horizontal") {
@@ -4626,11 +4793,13 @@ var chart = (function (exports) {
               outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
               innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
           }
+          return this;
       }
       _drawLinks() {
           const svg = select(this.container).select("svg");
           const id = svg.node().id;
           const canvas = svg.select(".canvas");
+          const fade = this.playback ? " fade" : "";
           if (this.orient === "horizontal") {
               this._linkGenerator = linkHorizontal()
                   .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
@@ -4646,13 +4815,14 @@ var chart = (function (exports) {
                   .y((d) => d[1]);
           }
           const linkCollection = canvas.append("g")
+              .attr("class", "links")
               .selectAll("g")
-              .data(this.links)
-              .enter()
+              .data(this.links).enter()
               .append("g")
               .attr("id", d => `${id}_${d.id}`)
-              .attr("class", "link")
+              .attr("class", "link" + fade)
               .on("click", (d) => this._linkClickHandler(event.target));
+          selectAll("g.links").lower();
           const path = linkCollection
               .append("path")
               .attr("class", "link")
@@ -4665,19 +4835,22 @@ var chart = (function (exports) {
           path.transition(t).delay(1000)
               // @ts-ignore
               .attr("d", d => this._linkGenerator(d));
+          return this;
       }
       _drawNodes() {
           const self = this;
           const svg = select(this.container).select("svg");
           const id = svg.node().id;
           const canvas = svg.select(".canvas");
+          const fade = this.playback ? " fade" : "";
           const nodes = canvas.append("g")
+              .attr("class", "nodes")
               .selectAll("g.node")
               .data(this.nodes).enter()
               .append("g")
-              .attr("id", d => `${id}_${d.id}`)
-              .attr("class", "node")
-              .attr("transform", d => {
+              .attr("id", (d) => `${id}_${d.id}`)
+              .attr("class", (d) => "node" + (d.layer > 0 ? fade : ""))
+              .attr("transform", (d) => {
               return this.orient === "horizontal"
                   ? `translate(${d.x},${-d.h})`
                   : `translate(${-d.w},${d.y})`;
@@ -4689,6 +4862,7 @@ var chart = (function (exports) {
               .on("drag", dragmove)
               .on("end", dragend))
               .on("click", () => this._nodeClickHandler(event.currentTarget));
+          select("g.nodes").raise();
           const rect = nodes.append("rect")
               .attr("class", "node")
               .attr("height", (d) => d.h + "px")
@@ -4697,6 +4871,12 @@ var chart = (function (exports) {
               .attr("x", 0)
               .attr("y", 0)
               .style("opacity", 0);
+          nodes.append("rect")
+              .attr("class", "shadow node")
+              .attr("height", (d) => (this.playback ? d.h : 0) + "px")
+              .attr("width", (d) => (this.playback ? d.w : 0) + "px")
+              .attr("x", 0)
+              .attr("y", 0);
           const t1 = transition().duration(600);
           rect.transition(t1).delay((d) => d.layer * 100)
               .style("opacity", 1);
@@ -4751,6 +4931,7 @@ var chart = (function (exports) {
               delete d.__y0;
               delete d.__y1;
           }
+          return this;
       }
       /**
        * Creates the initial data structures
@@ -4759,7 +4940,7 @@ var chart = (function (exports) {
           nodes.forEach((node, i) => {
               const n = node;
               n.h = 0; // height
-              n.id = i;
+              n.id = i + 1;
               n.layer = -1; // denotes membership to a visual grouping
               n.linksIn = []; // replaces source in other sankey models
               n.linksOut = []; // ditto target
@@ -4790,14 +4971,67 @@ var chart = (function (exports) {
       _nodeClickHandler(el) {
           event.stopPropagation();
           this.clearSelection();
-          const dt = select(el).datum();
-          window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-          selectAll("g.link")
-              .each((d, i, n) => {
-              if (d.nodeIn === dt || d.nodeOut === dt) {
-                  select(n[i]).select("path").classed("selected", true);
+          const activeNode = select(el);
+          const dt = activeNode.datum();
+          if (this.playback) {
+              activeNode.classed("fade", false);
+              const nMap = new Map();
+              if (dt.linksIn.length === 0) {
+                  nMap.set(el.id, dt.value);
+              }
+              selectAll("g.link.fade")
+                  .each((d, i, n) => {
+                  if (d.nodeIn === dt) {
+                      const link = select(n[i]);
+                      link.classed("fade", false);
+                      let id = link.attr("id");
+                      id = id.replace(/_\d+\->/, "_");
+                      let sum = d.value;
+                      if (nMap.has(id)) {
+                          sum += nMap.get(id);
+                      }
+                      nMap.set(id, sum);
+                  }
+              });
+              for (let [k, v] of nMap.entries()) {
+                  const node = select("#" + k);
+                  node.classed("fade", false);
+                  const shadow = node.select(".shadow");
+                  if (this.orient === "horizontal") {
+                      let h = parseFloat(shadow.attr("height"));
+                      if (h > 0) {
+                          h = h - this._scale(v);
+                          shadow.attr("height", (h >= 0 ? h : 0) + "px");
+                      }
+                  }
+              }
+          }
+          else {
+              window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
+              selectAll("g.link")
+                  .each((d, i, n) => {
+                  if (d.nodeIn === dt || d.nodeOut === dt) {
+                      const link = select(n[i]);
+                      link.select("path").classed("selected", true);
+                  }
+              });
+          }
+      }
+      /**
+       * Sets height and width of node
+       */
+      _nodeSize() {
+          this.nodes.forEach((node) => {
+              if (this.orient === "horizontal") {
+                  node.h = Math.max(1, this._scale(node.value));
+                  node.w = this.nodeSize;
+              }
+              else {
+                  node.h = this.nodeSize;
+                  node.w = Math.max(1, this._scale(node.value));
               }
           });
+          return this;
       }
       /**
        * Determines each node dimension and layer attribution and finally determines node order within layer
@@ -4808,7 +5042,7 @@ var chart = (function (exports) {
           this.nodes.forEach((node) => {
               // calculate value if not already provided
               if (node.value === undefined) {
-                  node.value = Math.max(node.linksIn.map(link => link.value).reduce((ac, s) => ac + s, 0), node.linksOut.map(link => link.value).reduce((ac, s) => ac + s, 0));
+                  node.value = Math.max(1, node.linksIn.map(link => link.value).reduce((ac, s) => ac + s, 0), node.linksOut.map(link => link.value).reduce((ac, s) => ac + s, 0));
               }
               // calculate layer value
               if (node.linksIn.length === 0) {
@@ -4836,6 +5070,142 @@ var chart = (function (exports) {
           this._layerGap = (this.orient === "horizontal" ? this.rw : this.rh) / this._totalLayers;
           // sort: by layer asc then by size then by a-z name
           this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));
+          return this;
+      }
+      /**
+       * Positions links relative to sourcec and destination nodes
+       */
+      _positionLinks() {
+          // sort: by size then by a-z name
+          this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
+          const source = new Map();
+          const target = new Map();
+          this.links.forEach((link) => {
+              let src = 0, tgt = 0;
+              link.w = Math.max(1, this._scale(link.value));
+              if (!source.has(link.nodeIn.id)) {
+                  source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
+              }
+              if (!target.has(link.nodeOut.id)) {
+                  target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
+              }
+              src = source.get(link.nodeIn.id);
+              link.y0 = src + (link.w / 2);
+              tgt = target.get(link.nodeOut.id);
+              link.y1 = tgt + (link.w / 2);
+              source.set(link.nodeIn.id, link.y0 + (link.w / 2));
+              target.set(link.nodeOut.id, link.y1 + (link.w / 2));
+          });
+          return this;
+      }
+      /**
+       * spreads the nodes across the chart space by layer
+       */
+      _positionNodeByLayer() {
+          if (this.orient === "horizontal") {
+              this.nodes.forEach((node) => {
+                  node.x = node.layer * this._layerGap;
+                  if (node.x >= this.rw) {
+                      node.x -= this.nodeSize;
+                  }
+                  else if (node.x < 0) {
+                      node.x = 0;
+                  }
+              });
+          }
+          else {
+              this.nodes.forEach((node) => {
+                  node.y = node.layer * this._layerGap;
+                  if (node.y >= this.rh) {
+                      node.y -= this.nodeSize;
+                  }
+                  else if (node.y < 0) {
+                      node.y = 0;
+                  }
+              });
+          }
+          return this;
+      }
+      /**
+       * spreads the nodes within layer
+       */
+      _positionNodeInLayer() {
+          let layer = -1, n = 0;
+          let layerTracker = [];
+          if (this.orient === "horizontal") {
+              this.nodes.forEach((node) => {
+                  if (layer === node.layer) {
+                      node.y = n;
+                      n += node.h + this.padding;
+                      layerTracker[layer].sum = n;
+                      layerTracker[layer].nodes.push(node);
+                  }
+                  else {
+                      layer = node.layer;
+                      node.y = 0;
+                      n = node.h + this.padding;
+                      layerTracker.push({ nodes: [node], sum: n, total: this.rh });
+                  }
+              });
+          }
+          else {
+              this.nodes.forEach((node) => {
+                  if (layer === node.layer) {
+                      node.x = n;
+                      n += node.w + this.padding;
+                      layerTracker[layer].sum = n;
+                      layerTracker[layer].nodes.push(node);
+                  }
+                  else {
+                      layer = node.layer;
+                      node.x = 0;
+                      n = node.w + this.padding;
+                      layerTracker.push({ nodes: [node], sum: n, total: this.rw });
+                  }
+              });
+          }
+          // 2nd pass to widen out layers too tightly clustered together
+          layerTracker.forEach(layer => {
+              if (layer.sum * 1.2 < layer.total && layer.nodes.length > 1) {
+                  const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
+                  layer.nodes.forEach((node, i) => {
+                      if (this.orient === "horizontal") {
+                          node.y += (i + 1) * customPad;
+                      }
+                      else {
+                          node.x += (i + 1) * customPad;
+                      }
+                  });
+              }
+          });
+          return this;
+      }
+      /**
+       * Calculates the chart scale
+       */
+      _scaling() {
+          const rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
+          this._scale = linear$1().domain(this._extent).range(rng);
+          return this;
+      }
+      /**
+       * Determines the minimum and maximum extent values to scale nodes by
+       */
+      _scalingExtent() {
+          this._extent[0] = this.nodes.reduce((ac, n) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
+          let max = this._extent[0], layer = 0, runningTotal = 0;
+          this.nodes.forEach((node) => {
+              if (node.layer === layer) {
+                  runningTotal += node.value;
+              }
+              else {
+                  layer = node.layer;
+                  max = runningTotal > max ? runningTotal : max;
+                  runningTotal = node.value;
+              }
+          });
+          this._extent[1] = (runningTotal > max ? runningTotal : max) + (this.padding * (this.nodes.length * 2.5));
+          return this;
       }
   }
 

@@ -1,20 +1,16 @@
+import { TMargin } from "@buckneri/spline";
 export declare type TLink = {
     fill: string;
     id: string;
     nodeIn: TNode;
     nodeOut: TNode;
     source: number;
+    story: string;
     target: number;
     value: number;
     w: number;
     y0: number;
     y1: number;
-};
-export declare type TMargin = {
-    bottom: number;
-    left: number;
-    right: number;
-    top: number;
 };
 export declare type TNode = {
     fill: string;
@@ -24,6 +20,7 @@ export declare type TNode = {
     linksIn: TLink[];
     linksOut: TLink[];
     name: string;
+    story: string;
     value: number;
     w: number;
     x: number;
@@ -41,6 +38,7 @@ export declare type TSankeyOptions = {
     orient: TOrientation;
     padding: number;
     playback: boolean;
+    playbackDelay: string;
 };
 export declare class Sankey {
     container: HTMLElement;
@@ -54,6 +52,7 @@ export declare class Sankey {
     orient: TOrientation;
     padding: number;
     playback: boolean;
+    playbackDelay: string;
     rh: number;
     rw: number;
     w: number;
@@ -89,6 +88,24 @@ export declare class Sankey {
      * Serialise the Sankey data
      */
     toString(): string;
+    private _drawCanvas;
+    private _drawLabels;
+    private _drawLinks;
+    private _drawNodes;
+    /**
+     * Creates the initial data structures
+     */
+    private _initDataStructure;
+    private _linkClickHandler;
+    private _nodeClickHandler;
+    /**
+     * Sets height and width of node
+     */
+    private _nodeSize;
+    /**
+     * Determines each node dimension and layer attribution and finally determines node order within layer
+     */
+    private _nodeValueLayer;
     /**
      * Positions links relative to sourcec and destination nodes
      */
@@ -102,33 +119,11 @@ export declare class Sankey {
      */
     private _positionNodeInLayer;
     /**
-     * Sets height and width of node
-     */
-    private _setNodeSize;
-    /**
-     * Determines the scale and layer gap of nodes
-     */
-    private _setScale;
-    /**
      * Calculates the chart scale
      */
-    private _calcScaling;
+    private _scaling;
     /**
      * Determines the minimum and maximum extent values to scale nodes by
      */
-    private _calcScalingExtent;
-    private _drawCanvas;
-    private _drawLabels;
-    private _drawLinks;
-    private _drawNodes;
-    /**
-     * Creates the initial data structures
-     */
-    private _initDataStructure;
-    private _linkClickHandler;
-    private _nodeClickHandler;
-    /**
-     * Determines each node dimension and layer attribution and finally determines node order within layer
-     */
-    private _nodeValueLayer;
+    private _scalingExtent;
 }
