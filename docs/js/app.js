@@ -1,6 +1,6 @@
 let json = {
     nodes: [
-      {name: "N1",fill: "#9E0142",label: "Start",story: "Organisation 1"}, 
+      {name: "N1",fill: "#9E0142",label: "Start",story: "A longer version of events is repeated here. The aim is to cause the Y overflow scroll feature to appear within the smaller text box."}, 
       {name: "N2",fill: "#9E0142",label: "Start",story: "Organisation 2"}, 
       {name: "N3",fill: "#9E0142",label: "Start",story: "Organisation 3"}, 
       {name: "N4",fill: "#9E0142",label: "Start",story: "Organisation 4"}, 

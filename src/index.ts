@@ -207,7 +207,7 @@ export class Sankey {
     const fade = this.playback ? " shadow" : "";
 
     const outerLabel = nodes.append("text")
-      .attr("class", (d: any) => "node-label" + (d.layer > 0 ? fade : ""))
+      .attr("class", (d: any) => "node-label outer" + (d.layer > 0 ? fade : ""))
       .attr("dy", "0.35em")
       .attr("opacity", 0);
 
@@ -227,7 +227,7 @@ export class Sankey {
     }
 
     const innerLabel = nodes.append("text")
-      .attr("class", (d: any) => "node-label" + (d.layer > 0 ? fade : ""))
+      .attr("class", (d: any) => "node-label inner" + (d.layer > 0 ? fade : ""))
       .attr("dy", "0.35em")
       .attr("text-anchor", "middle")
       .attr("opacity", 0);
@@ -321,18 +321,15 @@ export class Sankey {
         .text("Select a node to start");
 
       const b: DOMRect = rect.node()?.getBoundingClientRect() as DOMRect;
-      rect.style("top", (box.top + (box.height / 2) - (b.height / 2))+ "px")
-          .style("left", (box.left + (box.width / 2) - (b.width / 2)) + "px");
+      rect.style("top", (box.top + (this.rh / 2) - (b.height / 2))+ "px")
+          .style("left", (box.left + (this.rw / 2) - (b.width / 2)) + "px");
 
       rect.transition().duration(3000)
         .style("opacity", 1)
         .transition().duration(5000)
         .style("opacity", 0)
-        .transition().delay(5500)
-        .remove();
-
-      pb.transition().delay(9000)
-        .remove();
+        .transition().duration(0)
+        .style("display", "none");
 
       canvas.selectAll("g.node")
         .each((d: any, i: number, n: any) => {

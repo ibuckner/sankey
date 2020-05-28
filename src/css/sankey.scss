@@ -1,9 +1,14 @@
+@use "globals";
+
 rect.node.shadow {
   fill: #999 !important;
   fill-opacity: 1 !important;
 }
 
 div.playback-prompt {
+  @include globals.fx;
+  @include globals.fx-center;
+
   background-color: inherit;
   min-height: 50px;
   max-height: 200px;

@@ -4750,7 +4750,7 @@ var chart = (function (exports) {
           const nodes = canvas.selectAll("g.node");
           const fade = this.playback ? " shadow" : "";
           const outerLabel = nodes.append("text")
-              .attr("class", (d) => "node-label" + (d.layer > 0 ? fade : ""))
+              .attr("class", (d) => "node-label outer" + (d.layer > 0 ? fade : ""))
               .attr("dy", "0.35em")
               .attr("opacity", 0);
           if (this.orient === "horizontal") {
@@ -4769,7 +4769,7 @@ var chart = (function (exports) {
                   .text((d) => d.w > d.name.length * 7 ? d.name : "");
           }
           const innerLabel = nodes.append("text")
-              .attr("class", (d) => "node-label" + (d.layer > 0 ? fade : ""))
+              .attr("class", (d) => "node-label inner" + (d.layer > 0 ? fade : ""))
               .attr("dy", "0.35em")
               .attr("text-anchor", "middle")
               .attr("opacity", 0);
@@ -4852,16 +4852,14 @@ var chart = (function (exports) {
                   .style("opacity", 1)
                   .text("Select a node to start");
               const b = (_a = rect.node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
-              rect.style("top", (box.top + (box.height / 2) - (b.height / 2)) + "px")
-                  .style("left", (box.left + (box.width / 2) - (b.width / 2)) + "px");
+              rect.style("top", (box.top + (this.rh / 2) - (b.height / 2)) + "px")
+                  .style("left", (box.left + (this.rw / 2) - (b.width / 2)) + "px");
               rect.transition().duration(3000)
                   .style("opacity", 1)
                   .transition().duration(5000)
                   .style("opacity", 0)
-                  .transition().delay(5500)
-                  .remove();
-              pb.transition().delay(9000)
-                  .remove();
+                  .transition().duration(0)
+                  .style("display", "none");
               canvas.selectAll("g.node")
                   .each((d, i, n) => {
                   const r = select(n[i]);

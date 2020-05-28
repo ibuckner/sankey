@@ -4,13 +4,19 @@ rect.node.shadow {
 }
 
 div.playback-prompt {
+  align-items: center;
   background-color: inherit;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
   max-height: 200px;
-  min-height: 20px;
+  min-height: 50px;
   min-width: 50px;
   overflow-y: auto;
   padding: 10px;
   position: absolute;
+  text-align: center;
   z-index: 1000000;
 }
 
