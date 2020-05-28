@@ -4626,12 +4626,13 @@ class Sankey {
         this.orient = "horizontal";
         this.padding = 5;
         this.playback = false;
-        this.playbackDelay = "1s";
+        this.playbackDelay = "3s";
         this.rh = 160;
         this.rw = 150;
         this.w = 200;
         this._extent = [0, 0]; // min/max node values
         this._linkGenerator = () => true;
+        this._playing = false;
         this._layerGap = 0;
         this._totalLayers = 0;
         if (options.margin !== undefined) {
@@ -4836,16 +4837,18 @@ class Sankey {
         return this;
     }
     _drawMisc() {
-        const canvas = select(this.container).select(".canvas");
+        const container = select(this.container);
+        const defs = container.select("defs");
+        const canvas = container.select(".canvas");
         if (this.playback) {
             const pb = canvas.append("g")
                 .attr("class", "playback-prompt");
             const rect = pb.append("rect")
                 .attr("class", "playback-prompt")
-                .attr("height", (this.rh / 2) + "px")
+                .attr("height", (this.rh / 3) + "px")
                 .attr("width", (this.rw / 2) + "px")
                 .attr("x", this.rw / 4)
-                .attr("y", this.rh / 4)
+                .attr("y", this.rh / 3)
                 .attr("opacity", 0);
             const text = pb.append("text")
                 .attr("class", "playback-prompt")
@@ -4866,7 +4869,8 @@ class Sankey {
             pb.transition().delay(9000)
                 .remove();
             canvas.selectAll("g.node")
-                .each((d) => {
+                .each((d, i, n) => {
+                const r = select(n[i]);
                 const c = pb.append("circle")
                     .attr("class", "playback-prompt")
                     .attr("cx", d.x + (d.w / 2))
@@ -5040,12 +5044,26 @@ class Sankey {
             for (let [k, v] of nMap.entries()) {
                 const node = select("#" + k);
                 node.classed("shadow", false);
-                const shadow = node.select(".shadow");
+                const r = node.select(".node");
+                const shadow = node.select(".node.shadow");
                 if (this.orient === "horizontal") {
                     let h = parseFloat(shadow.attr("height"));
                     if (h > 0) {
                         h = h - this._scale(v);
-                        shadow.attr("height", (h >= 0 ? h : 0) + "px");
+                        h = h >= 0 ? h : 0;
+                        shadow.transition().duration(500)
+                            .attr("height", h + "px");
+                    }
+                }
+                else {
+                    let w = parseFloat(shadow.attr("width"));
+                    let x = parseFloat(dt === node.datum() ? r.attr("x") : shadow.attr("x"));
+                    if (w > 0) {
+                        w = w - this._scale(v);
+                        w = w >= 0 ? w : 0;
+                        shadow.transition().duration(500)
+                            .attr("width", w + "px")
+                            .attr("x", x + this._scale(v));
                     }
                 }
             }

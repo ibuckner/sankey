@@ -1,7 +1,6 @@
 rect.node.shadow {
   fill: #999 !important;
   fill-opacity: 1 !important;
-  transition: height 500ms ease-out, width 500ms ease-out;
 }
 
 rect.playback-prompt {
