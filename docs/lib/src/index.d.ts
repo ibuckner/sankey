@@ -1,5 +1,6 @@
 import { TMargin } from "@buckneri/spline";
 export declare type TLink = {
+    dom: SVGElement;
     fill: string;
     id: string;
     nodeIn: TNode;
@@ -13,6 +14,7 @@ export declare type TLink = {
     y1: number;
 };
 export declare type TNode = {
+    dom: SVGElement;
     fill: string;
     h: number;
     id: number;
@@ -38,7 +40,7 @@ export declare type TSankeyOptions = {
     orient: TOrientation;
     padding: number;
     playback: boolean;
-    playbackDelay: string;
+    playbackDelay: number;
 };
 export declare class Sankey {
     container: HTMLElement;
@@ -52,13 +54,12 @@ export declare class Sankey {
     orient: TOrientation;
     padding: number;
     playback: boolean;
-    playbackDelay: string;
+    playbackDelay: number;
     rh: number;
     rw: number;
     w: number;
     private _extent;
     private _linkGenerator;
-    private _playing;
     private _scale;
     private _layerGap;
     private _totalLayers;
@@ -92,14 +93,15 @@ export declare class Sankey {
     private _drawCanvas;
     private _drawLabels;
     private _drawLinks;
-    private _drawMisc;
     private _drawNodes;
+    private _drawPlayback;
     /**
      * Creates the initial data structures
      */
     private _initDataStructure;
     private _linkClickHandler;
     private _nodeClickHandler;
+    private _playbackClickHandler;
     /**
      * Sets height and width of node
      */

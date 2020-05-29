@@ -58,7 +58,7 @@
     "postcss-sorting": "^5.0.1",
     "rollup": "^2.11.2",
     "rollup-plugin-typescript2": "^0.27.1",
-    "sass": "^1.26.5",
+    "sass": "^1.26.7",
     "stylelint": "^13.5.0",
     "ts-jest": "^26.0.0",
     "typescript": "^3.9.3"

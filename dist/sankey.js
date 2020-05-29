@@ -4626,13 +4626,12 @@ class Sankey {
         this.orient = "horizontal";
         this.padding = 5;
         this.playback = false;
-        this.playbackDelay = "3s";
+        this.playbackDelay = 3000;
         this.rh = 160;
         this.rw = 150;
         this.w = 200;
         this._extent = [0, 0]; // min/max node values
         this._linkGenerator = () => true;
-        this._playing = false;
         this._layerGap = 0;
         this._totalLayers = 0;
         if (options.margin !== undefined) {
@@ -4706,7 +4705,7 @@ class Sankey {
             ._drawNodes()
             ._drawLinks()
             ._drawLabels()
-            ._drawMisc();
+            ._drawPlayback();
         return this;
     }
     /**
@@ -4739,7 +4738,11 @@ class Sankey {
         });
         sg.classList.add("sankey");
         sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
-        select(sg).on("click", () => this.clearSelection());
+        const s = select(sg);
+        s.on("click", () => this.clearSelection());
+        const defs = s.select("defs");
+        const gb = defs.append("filter").attr("id", "blur");
+        gb.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 5);
         return this;
     }
     _drawLabels() {
@@ -4813,7 +4816,7 @@ class Sankey {
                 .x((d) => d[0])
                 .y((d) => d[1]);
         }
-        const linkCollection = canvas.append("g")
+        const links = canvas.append("g")
             .attr("class", "links")
             .selectAll("g")
             .data(this.links).enter()
@@ -4821,59 +4824,22 @@ class Sankey {
             .attr("id", d => `${id}_${d.id}`)
             .attr("class", "link" + fade)
             .on("click", (d) => this._linkClickHandler(event.target));
+        this.links.forEach((lk) => {
+            lk.dom = document.getElementById(`${id}_${lk.id}`);
+        });
         selectAll("g.links").lower();
-        const path = linkCollection
+        const path = links
             .append("path")
             .attr("class", "link")
             .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
             .attr("stroke-width", (d) => d.w)
             .attr("fill", "none");
-        linkCollection.append("title")
+        links.append("title")
             .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
         const t = transition().duration(600);
         path.transition(t).delay(1000)
             // @ts-ignore
             .attr("d", d => this._linkGenerator(d));
-        return this;
-    }
-    _drawMisc() {
-        var _a;
-        const container = select(this.container);
-        const box = measure(this.container);
-        const canvas = container.select(".canvas");
-        if (this.playback) {
-            const pb = canvas.append("g")
-                .attr("class", "playback-prompt");
-            const rect = container.append("div")
-                .attr("class", "playback-prompt")
-                .style("opacity", 1)
-                .text("Select a node to start");
-            const b = (_a = rect.node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
-            rect.style("top", (box.top + (this.rh / 2) - (b.height / 2)) + "px")
-                .style("left", (box.left + (this.rw / 2) - (b.width / 2)) + "px");
-            rect.transition().duration(3000)
-                .style("opacity", 1)
-                .transition().duration(5000)
-                .style("opacity", 0)
-                .transition().duration(0)
-                .style("display", "none");
-            canvas.selectAll("g.node")
-                .each((d, i, n) => {
-                const r = select(n[i]);
-                const c = pb.append("circle")
-                    .attr("class", "playback-prompt")
-                    .attr("cx", d.x + (d.w / 2))
-                    .attr("cy", d.y + (d.h / 2))
-                    .attr("r", 0);
-                c.lower();
-                c.transition().duration(3000)
-                    .attr("r", 20)
-                    .transition().duration(5000)
-                    .attr("r", 0)
-                    .transition().delay(5500)
-                    .remove();
-            });
-        }
         return this;
     }
     _drawNodes() {
@@ -4901,6 +4867,9 @@ class Sankey {
             .on("drag", dragmove)
             .on("end", dragend))
             .on("click", () => this._nodeClickHandler(event.currentTarget));
+        this.nodes.forEach((node) => {
+            node.dom = document.getElementById(`${id}_${node.id}`);
+        });
         select("g.nodes").raise();
         const rect = nodes.append("rect")
             .attr("class", "node")
@@ -4972,6 +4941,22 @@ class Sankey {
         }
         return this;
     }
+    _drawPlayback() {
+        this.nodes.forEach((node) => {
+            if (node.story) {
+                const c = select(node.dom).append("circle")
+                    .attr("class", "playback-prompt")
+                    .attr("cx", node.w / 2)
+                    .attr("cy", node.h / 2)
+                    .attr("filter", "url(#blur)")
+                    .attr("r", 0)
+                    .on("click", () => this._playbackClickHandler(event.currentTarget));
+                c.append("title").text("View notes about this flow stage");
+                c.transition().duration(3000).attr("r", 15);
+            }
+        });
+        return this;
+    }
     /**
      * Creates the initial data structures
      */
@@ -4992,7 +4977,7 @@ class Sankey {
             const l = link;
             l.nodeIn = this.nodes[link.source]; // replaces source in other sankey models
             l.nodeOut = this.nodes[link.target]; // ditto target
-            l.id = `${l.nodeIn.id}->${l.nodeOut.id}`;
+            l.id = "L" + (i + 1);
             l.w = 0; // width
             l.y0 = 0; // value at source node (horizontal: top right y, vertical: bottom left x)
             l.y1 = 0; // value at target node (horizontal: bottom left y, vertical; top right x)
@@ -5012,61 +4997,60 @@ class Sankey {
         this.clearSelection();
         const activeNode = select(el);
         const dt = activeNode.datum();
-        if (this.playback && dt.linksOut.length > 0) {
-            activeNode.classed("shadow", false);
-            const nMap = new Map();
-            nMap.set(el.id, dt.value);
-            selectAll("g.link.shadow")
-                .each((d, i, n) => {
-                if (d.nodeIn === dt) {
-                    const link = select(n[i]);
-                    link.classed("shadow", false);
-                    let id = link.attr("id");
-                    id = id.replace(/_\d+\->/, "_");
-                    let sum = d.value;
-                    if (nMap.has(id)) {
-                        sum += nMap.get(id);
-                    }
-                    nMap.set(id, sum);
-                }
+        window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
+        dt.linksIn.forEach((link) => {
+            select(link.dom).select("path").classed("selected", true);
+        });
+        dt.linksOut.forEach((link) => {
+            select(link.dom).select("path").classed("selected", true);
+        });
+    }
+    _playbackClickHandler(el) {
+        event.stopPropagation();
+        this.clearSelection();
+        const button = select(el);
+        button.transition().duration(1000)
+            .attr("r", 0)
+            .transition().duration(0)
+            .remove();
+        const activeNode = select(el.parentNode);
+        const dt = activeNode.datum();
+        const narrate = [dt];
+        if (dt.linksOut.length > 0) {
+            dt.linksOut.forEach((link) => {
+                select(link.dom).classed("shadow", false);
+                narrate.push(link);
             });
-            for (let [k, v] of nMap.entries()) {
-                const node = select("#" + k);
-                node.classed("shadow", false);
-                const r = node.select(".node");
-                const shadow = node.select(".node.shadow");
-                if (this.orient === "horizontal") {
-                    let h = parseFloat(shadow.attr("height"));
-                    if (h > 0) {
-                        h = h - this._scale(v);
-                        h = h >= 0 ? h : 0;
-                        shadow.transition().duration(500)
-                            .attr("height", h + "px");
+            this.nodes.forEach((node) => {
+                let sum = 0, breakdown = false;
+                if (node.linksIn.length > 0 || node === dt) {
+                    node.linksIn.forEach((link) => {
+                        if (select(link.dom).classed("shadow")) {
+                            sum += link.value;
+                        }
+                        else {
+                            breakdown = true;
+                        }
+                    });
+                    if (breakdown || (node === dt && node.linksIn.length === 0)) {
+                        sum = this._scale(sum);
+                        sum = sum >= 0 ? sum : 0;
+                        const shadow = select(node.dom).select(".shadow");
+                        if (this.orient === "horizontal") {
+                            shadow.transition().duration(500)
+                                .attr("height", `${sum}px`);
+                        }
+                        else {
+                            let x = parseFloat(select(node.dom).attr("x"));
+                            shadow.transition().duration(500)
+                                .attr("width", `${sum}px`)
+                                .attr("x", x + sum);
+                        }
                     }
-                }
-                else {
-                    let w = parseFloat(shadow.attr("width"));
-                    let x = parseFloat(dt === node.datum() ? r.attr("x") : shadow.attr("x"));
-                    if (w > 0) {
-                        w = w - this._scale(v);
-                        w = w >= 0 ? w : 0;
-                        shadow.transition().duration(500)
-                            .attr("width", w + "px")
-                            .attr("x", x + this._scale(v));
-                    }
-                }
-            }
-        }
-        else {
-            window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-            selectAll("g.link")
-                .each((d, i, n) => {
-                if (d.nodeIn === dt || d.nodeOut === dt) {
-                    const link = select(n[i]);
-                    link.select("path").classed("selected", true);
                 }
             });
         }
+        window.dispatchEvent(new CustomEvent("node-playback", { detail: narrate }));
     }
     /**
      * Sets height and width of node

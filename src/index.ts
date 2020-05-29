@@ -6,6 +6,7 @@ import { drag } from "d3-drag";
 import { formatNumber, measure, svg, TMargin } from "@buckneri/spline";
 
 export type TLink = {
+  dom: SVGElement,
   fill: string, 
   id: string, 
   nodeIn: TNode, 
@@ -20,6 +21,7 @@ export type TLink = {
 };
 
 export type TNode = {
+  dom: SVGElement,
   fill: string,
   h: number,
   id: number, 
@@ -47,7 +49,7 @@ export type TSankeyOptions = {
   orient: TOrientation, // determines node alignment
   padding: number,      // minimum distance between node neighbours
   playback: boolean,    // changes the visualisation mode
-  playbackDelay: string // animation delay between slide playback
+  playbackDelay: number // animation delay (ms) between slide playback
 };
 
 export class Sankey {
@@ -62,14 +64,13 @@ export class Sankey {
   public orient: TOrientation = "horizontal";
   public padding: number = 5;
   public playback: boolean = false;
-  public playbackDelay: string = "3s";
+  public playbackDelay: number = 3000;
   public rh: number = 160;
   public rw: number = 150;
   public w: number = 200;
 
   private _extent: [number, number] = [0, 0]; // min/max node values
   private _linkGenerator: Function = () => true;
-  private _playing: boolean = false;
   private _scale: any;
   private _layerGap: number = 0;
   private _totalLayers: number = 0;
@@ -159,7 +160,7 @@ export class Sankey {
         ._drawNodes()
         ._drawLinks()
         ._drawLabels()
-        ._drawMisc();
+        ._drawPlayback();
     return this;
   }
 
@@ -196,7 +197,13 @@ export class Sankey {
     }) as any;
     sg.classList.add("sankey");
     sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
-    select(sg).on("click", () => this.clearSelection());
+
+    const s = select(sg);
+    s.on("click", () => this.clearSelection());
+
+    const defs = s.select("defs");
+    const gb = defs.append("filter").attr("id", "blur");
+    gb.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 5);
 
     return this;
   }
@@ -277,7 +284,7 @@ export class Sankey {
         .y((d: any) => d[1]);
     }
 
-    const linkCollection = canvas.append("g")
+    const links = canvas.append("g")
       .attr("class", "links")
       .selectAll("g")
       .data(this.links).enter()
@@ -286,71 +293,26 @@ export class Sankey {
         .attr("class", "link" + fade)
         .on("click", (d: TLink) => this._linkClickHandler(event.target));
 
+    this.links.forEach((lk: TLink) => {
+      lk.dom = document.getElementById(`${id}_${lk.id}`) as any;
+    });
+
     selectAll("g.links").lower();
 
-    const path = linkCollection
+    const path = links
       .append("path")
         .attr("class", "link")
         .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
         .attr("stroke-width", (d: TLink) => d.w)
         .attr("fill", "none");
 
-    linkCollection.append("title")
+    links.append("title")
       .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
 
     const t: any = transition().duration(600);
     path.transition(t).delay(1000)
       // @ts-ignore
       .attr("d", d => this._linkGenerator(d));
-
-    return this;
-  }
-
-  private _drawMisc(): Sankey {
-    const container = select(this.container);
-    const box = measure(this.container);
-    const canvas = container.select(".canvas");
-
-    if (this.playback) {
-      const pb = canvas.append("g")
-        .attr("class", "playback-prompt");
-
-      const rect = container.append("div")
-        .attr("class", "playback-prompt")
-        .style("opacity", 1)
-        .text("Select a node to start");
-
-      const b: DOMRect = rect.node()?.getBoundingClientRect() as DOMRect;
-      rect.style("top", (box.top + (this.rh / 2) - (b.height / 2))+ "px")
-          .style("left", (box.left + (this.rw / 2) - (b.width / 2)) + "px");
-
-      rect.transition().duration(3000)
-        .style("opacity", 1)
-        .transition().duration(5000)
-        .style("opacity", 0)
-        .transition().duration(0)
-        .style("display", "none");
-
-      canvas.selectAll("g.node")
-        .each((d: any, i: number, n: any) => {
-          const r = select(n[i]);
-
-          const c = pb.append("circle")
-            .attr("class", "playback-prompt")
-            .attr("cx", d.x + (d.w / 2))
-            .attr("cy", d.y + (d.h / 2))
-            .attr("r", 0);
-
-          c.lower();
-
-          c.transition().duration(3000)
-            .attr("r", 20)
-            .transition().duration(5000)
-            .attr("r", 0)
-            .transition().delay(5500)
-            .remove();
-        });
-    }
 
     return this;
   }
@@ -381,6 +343,10 @@ export class Sankey {
             .on("drag", dragmove as any)
             .on("end", dragend))
         .on("click", () => this._nodeClickHandler(event.currentTarget));
+
+    this.nodes.forEach((node: TNode) => {
+      node.dom = document.getElementById(`${id}_${node.id}`) as any;
+    });
 
     select("g.nodes").raise();
 
@@ -459,6 +425,23 @@ export class Sankey {
     return this;
   }
 
+  private _drawPlayback(): Sankey {
+    this.nodes.forEach((node: TNode) => {
+      if (node.story) {
+        const c = select(node.dom).append("circle")
+          .attr("class", "playback-prompt")
+          .attr("cx", node.w / 2)
+          .attr("cy", node.h / 2)
+          .attr("filter", "url(#blur)")
+          .attr("r", 0)
+          .on("click", () => this._playbackClickHandler(event.currentTarget));
+        c.append("title").text("View notes about this flow stage");
+        c.transition().duration(3000).attr("r", 15);
+      }
+    });
+    return this;
+  }
+
   /**
    * Creates the initial data structures
    */
@@ -480,7 +463,7 @@ export class Sankey {
       const l = link;
       l.nodeIn = this.nodes[link.source];   // replaces source in other sankey models
       l.nodeOut = this.nodes[link.target];  // ditto target
-      l.id = `${l.nodeIn.id}->${l.nodeOut.id}`;
+      l.id = "L" + (i + 1);
       l.w = 0;    // width
       l.y0 = 0;   // value at source node (horizontal: top right y, vertical: bottom left x)
       l.y1 = 0;   // value at target node (horizontal: bottom left y, vertical; top right x)
@@ -502,61 +485,62 @@ export class Sankey {
     this.clearSelection();
     const activeNode = select(el);
     const dt = activeNode.datum() as TNode;
-    if (this.playback && dt.linksOut.length > 0) {
-      activeNode.classed("shadow", false);
-      const nMap = new Map();
-      nMap.set(el.id, dt.value);
+    
+    window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
+    dt.linksIn.forEach((link: TLink) => {
+      select(link.dom).select("path").classed("selected", true);
+    });
+    dt.linksOut.forEach((link: TLink) => {
+      select(link.dom).select("path").classed("selected", true);
+    });
+  }
 
-      selectAll("g.link.shadow")
-        .each((d: any, i: number, n: any) => {
-          if (d.nodeIn === dt) {
-            const link = select(n[i]);
-            link.classed("shadow", false);
-            let id = link.attr("id");
-            id = id.replace(/_\d+\->/ , "_");
-            let sum = d.value;
-            if (nMap.has(id)) {
-              sum += nMap.get(id);
+  private _playbackClickHandler(el: Element): void {
+    event.stopPropagation();
+    this.clearSelection();
+    const button = select(el);
+    button.transition().duration(1000)
+      .attr("r", 0)
+      .transition().duration(0)
+      .remove();
+    const activeNode = select(el.parentNode as SVGElement);
+    const dt = activeNode.datum() as TNode;
+
+    const narrate: any[] = [dt];
+    if (dt.linksOut.length > 0) {
+      dt.linksOut.forEach((link: TLink) => {
+        select(link.dom).classed("shadow", false);
+        narrate.push(link);
+      });
+      this.nodes.forEach((node: TNode) => {
+        let sum = 0, breakdown = false;
+        if (node.linksIn.length > 0 || node === dt) {
+          node.linksIn.forEach((link: TLink) => {
+            if (select(link.dom).classed("shadow")) {
+              sum += link.value;
+            } else {
+              breakdown = true;
             }
-            nMap.set(id, sum);
-          }
-        });
-
-      for (let [k,v] of nMap.entries()) {
-        const node = select("#" + k);
-        node.classed("shadow", false);
-        const r = node.select(".node");
-        const shadow = node.select(".node.shadow");
-        if (this.orient === "horizontal") {
-          let h = parseFloat(shadow.attr("height"));
-          if (h > 0) {
-            h = h - this._scale(v);
-            h = h >= 0 ? h : 0;
-            shadow.transition().duration(500)
-              .attr("height", h + "px");
-          }
-        } else {
-          let w = parseFloat(shadow.attr("width"));
-          let x = parseFloat(dt === node.datum() ? r.attr("x") : shadow.attr("x"));
-          if (w > 0) {
-            w = w - this._scale(v);
-            w = w >= 0 ? w : 0;
-            shadow.transition().duration(500)
-              .attr("width", w + "px")
-              .attr("x", x + this._scale(v));
+          });
+          if (breakdown || (node === dt && node.linksIn.length === 0)) {
+            sum = this._scale(sum);
+            sum = sum >= 0 ? sum : 0;
+            const shadow = select(node.dom).select(".shadow");
+  
+            if (this.orient === "horizontal") {
+              shadow.transition().duration(500)
+                .attr("height", `${sum}px`);
+            } else {
+              let x = parseFloat(select(node.dom).attr("x"));
+              shadow.transition().duration(500)
+                .attr("width", `${sum}px`)
+                .attr("x", x + sum);
+            }
           }
         }
-      }
-    } else {
-      window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-      selectAll("g.link")
-        .each((d: any, i: number, n: any) => {
-          if (d.nodeIn === dt || d.nodeOut === dt) {
-            const link = select(n[i]);
-            link.select("path").classed("selected", true);
-          }
-        });
+      });
     }
+    window.dispatchEvent(new CustomEvent("node-playback", { detail: narrate }));
   }
 
   /**
