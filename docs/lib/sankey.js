@@ -4946,7 +4946,7 @@ var chart = (function (exports) {
       }
       _drawPlayback() {
           this.nodes.forEach((node) => {
-              if (node.story) {
+              if (node.story || (node.linksIn.length > 0 && node.linksOut.length > 0)) {
                   const c = select(node.dom).append("circle")
                       .attr("class", "playback-prompt")
                       .attr("cx", node.w / 2)
@@ -5018,11 +5018,16 @@ var chart = (function (exports) {
               .remove();
           const activeNode = select(el.parentNode);
           const dt = activeNode.datum();
-          const narrate = [dt];
+          const narrate = [];
+          if (dt.story) {
+              narrate.push(dt);
+          }
           if (dt.linksOut.length > 0) {
               dt.linksOut.forEach((link) => {
                   select(link.dom).classed("shadow", false);
-                  narrate.push(link);
+                  if (link.story) {
+                      narrate.push(link);
+                  }
               });
               this.nodes.forEach((node) => {
                   let sum = 0, breakdown = false;

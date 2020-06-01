@@ -71,6 +71,11 @@ svg {
   font-weight: normal;
 }
 
+.hidden {
+  opacity: 0 !important;
+  display: none !important;
+}
+
 #chart {
   background-color: #fff;
   height: calc(100% - 50px);
@@ -78,6 +83,33 @@ svg {
   position: fixed;
   top: 50px;
   width: 100%;
+}
+
+#tip {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: none;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: opacity 500ms ease-in-out;
+  width: 100%;
+  z-index: 1;
+}
+
+#tip > div {
+  background-color: #aaa;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  max-height: 40%;
+  max-width: 33%;
+  padding: 10px;
+  z-index: 1000000;
 }
 
 #title {

@@ -427,7 +427,7 @@ export class Sankey {
 
   private _drawPlayback(): Sankey {
     this.nodes.forEach((node: TNode) => {
-      if (node.story) {
+      if (node.story || (node.linksIn.length > 0 && node.linksOut.length > 0)) {
         const c = select(node.dom).append("circle")
           .attr("class", "playback-prompt")
           .attr("cx", node.w / 2)
@@ -506,11 +506,16 @@ export class Sankey {
     const activeNode = select(el.parentNode as SVGElement);
     const dt = activeNode.datum() as TNode;
 
-    const narrate: any[] = [dt];
+    const narrate: any[] = [];
+    if (dt.story) {
+      narrate.push(dt);
+    }
     if (dt.linksOut.length > 0) {
       dt.linksOut.forEach((link: TLink) => {
         select(link.dom).classed("shadow", false);
-        narrate.push(link);
+        if (link.story) {
+          narrate.push(link);
+        }
       });
       this.nodes.forEach((node: TNode) => {
         let sum = 0, breakdown = false;
