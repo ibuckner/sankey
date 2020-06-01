@@ -537,6 +537,11 @@ export class Sankey {
                 .attr("width", `${sum}px`)
                 .attr("x", x + sum);
             }
+
+            if (sum === 0) {
+              shadow.transition().delay(600)
+                .remove();
+            }
           }
         }
       });
