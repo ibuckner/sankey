@@ -4629,7 +4629,6 @@ var chart = (function (exports) {
           this.orient = "horizontal";
           this.padding = 5;
           this.playback = false;
-          this.playbackDelay = 3000;
           this.rh = 160;
           this.rw = 150;
           this.w = 200;
@@ -4670,9 +4669,6 @@ var chart = (function (exports) {
           }
           if (options.playback !== undefined) {
               this.playback = options.playback;
-          }
-          if (options.playbackDelay !== undefined) {
-              this.playbackDelay = options.playbackDelay;
           }
           this.data(options.nodes, options.links)
               .initialise();
@@ -4946,7 +4942,7 @@ var chart = (function (exports) {
       }
       _drawPlayback() {
           this.nodes.forEach((node) => {
-              if (node.story || (node.linksIn.length > 0 && node.linksOut.length > 0)) {
+              if (node.story && node.linksOut.length > 0) {
                   const c = select(node.dom).append("circle")
                       .attr("class", "playback-prompt")
                       .attr("cx", node.w / 2)

@@ -49,7 +49,6 @@ export type TSankeyOptions = {
   orient: TOrientation, // determines node alignment
   padding: number,      // minimum distance between node neighbours
   playback: boolean,    // changes the visualisation mode
-  playbackDelay: number // animation delay (ms) between slide playback
 };
 
 export class Sankey {
@@ -64,7 +63,6 @@ export class Sankey {
   public orient: TOrientation = "horizontal";
   public padding: number = 5;
   public playback: boolean = false;
-  public playbackDelay: number = 3000;
   public rh: number = 160;
   public rw: number = 150;
   public w: number = 200;
@@ -116,10 +114,6 @@ export class Sankey {
 
     if (options.playback !== undefined) {
       this.playback = options.playback;
-    }
-
-    if (options.playbackDelay !== undefined) {
-      this.playbackDelay = options.playbackDelay;
     }
     
     this.data(options.nodes, options.links)
@@ -427,7 +421,7 @@ export class Sankey {
 
   private _drawPlayback(): Sankey {
     this.nodes.forEach((node: TNode) => {
-      if (node.story || (node.linksIn.length > 0 && node.linksOut.length > 0)) {
+      if (node.story && node.linksOut.length > 0) {
         const c = select(node.dom).append("circle")
           .attr("class", "playback-prompt")
           .attr("cx", node.w / 2)

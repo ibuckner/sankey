@@ -40,7 +40,6 @@ export declare type TSankeyOptions = {
     orient: TOrientation;
     padding: number;
     playback: boolean;
-    playbackDelay: number;
 };
 export declare class Sankey {
     container: HTMLElement;
@@ -54,7 +53,6 @@ export declare class Sankey {
     orient: TOrientation;
     padding: number;
     playback: boolean;
-    playbackDelay: number;
     rh: number;
     rw: number;
     w: number;
