@@ -4938,19 +4938,21 @@ class Sankey {
         return this;
     }
     _drawPlayback() {
-        this.nodes.forEach((node) => {
-            if (node.story && node.linksOut.length > 0) {
-                const c = select(node.dom).append("circle")
-                    .attr("class", "playback-prompt")
-                    .attr("cx", node.w / 2)
-                    .attr("cy", node.h / 2)
-                    .attr("filter", "url(#blur)")
-                    .attr("r", 0)
-                    .on("click", () => this._playbackClickHandler(event.currentTarget));
-                c.append("title").text("View notes about this flow stage");
-                c.transition().duration(3000).attr("r", 15);
-            }
-        });
+        if (this.playback) {
+            this.nodes.forEach((node) => {
+                if (node.story && node.linksOut.length > 0) {
+                    const c = select(node.dom).append("circle")
+                        .attr("class", "playback-prompt")
+                        .attr("cx", node.w / 2)
+                        .attr("cy", node.h / 2)
+                        .attr("filter", "url(#blur)")
+                        .attr("r", 0)
+                        .on("click", () => this._playbackClickHandler(event.currentTarget));
+                    c.append("title").text("View notes about this flow stage");
+                    c.transition().duration(3000).attr("r", 15);
+                }
+            });
+        }
         return this;
     }
     /**

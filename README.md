@@ -27,6 +27,19 @@ const sankey = new Sankey({
 });
 ```
 
+### Events
+
+```javascript
+"link-selected"
+// emitted when user taps link
+
+"node-playback"
+// emitted when user taps highlight on node (playback = true)
+
+"node-selected"
+// emitted when user taps node
+```
+
 ### Methods
 
 ```javascript
