@@ -1,14 +1,6 @@
 logs
 *.log
-npm-debug.log*
-.npm
-coverage
-.nyc_output
-.rpt2_cache
-build
 node_modules
 .npm
-.vscode
 npm-debug.log
 package-lock.json
-private
