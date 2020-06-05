@@ -4838,6 +4838,7 @@ var chart = (function (exports) {
           selectAll("g.links").lower();
           const path = links
               .append("path")
+              .attr("id", d => `${id}_p${d.id}`)
               .attr("class", "link")
               .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
               .attr("stroke-width", (d) => d.w)
@@ -4880,6 +4881,7 @@ var chart = (function (exports) {
           });
           select("g.nodes").raise();
           const rect = nodes.append("rect")
+              .attr("id", (d) => `${id}_r${d.id}`)
               .attr("class", "node")
               .attr("height", (d) => d.h + "px")
               .attr("width", (d) => d.w + "px")

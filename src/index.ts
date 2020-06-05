@@ -295,6 +295,7 @@ export class Sankey {
 
     const path = links
       .append("path")
+        .attr("id", d => `${id}_p${d.id}`)
         .attr("class", "link")
         .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
         .attr("stroke-width", (d: TLink) => d.w)
@@ -345,6 +346,7 @@ export class Sankey {
     select("g.nodes").raise();
 
     const rect = nodes.append("rect")
+      .attr("id", (d: TNode) => `${id}_r${d.id}`)
       .attr("class", "node")
       .attr("height", (d: TNode) => d.h + "px")
       .attr("width", (d: TNode) => d.w + "px")
