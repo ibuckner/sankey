@@ -57,6 +57,7 @@ export declare class Sankey {
     rw: number;
     w: number;
     private _extent;
+    private _fp;
     private _linkGenerator;
     private _scale;
     private _layerGap;

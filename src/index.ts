@@ -3,7 +3,7 @@ import { scaleLinear } from "d3-scale";
 import { transition } from "d3-transition";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
-import { formatNumber, measure, svg, TMargin } from "@buckneri/spline";
+import { measure, svg, TMargin } from "@buckneri/spline";
 
 export type TLink = {
   dom: SVGElement,
@@ -68,6 +68,7 @@ export class Sankey {
   public w: number = 200;
 
   private _extent: [number, number] = [0, 0]; // min/max node values
+  private _fp: Intl.NumberFormat = new Intl.NumberFormat("en-GB", { style: "decimal" });
   private _linkGenerator: Function = () => true;
   private _scale: any;
   private _layerGap: number = 0;
@@ -238,12 +239,12 @@ export class Sankey {
         .attr("x", (d: any) => -d.h / 2)
         .attr("y", () => this.nodeSize / 2)
         .attr("transform", "rotate(270)")
-        .text((d: any) => d.h > 50 ? formatNumber(d.value) : "");
+        .text((d: any) => d.h > 50 ? this._fp.format(d.value) : "");
     } else {
       innerLabel
         .attr("x", (d: any) => d.w / 2)
         .attr("y", () => this.nodeSize / 2)
-        .text((d: any) => d.w > 50 ? formatNumber(d.value) : "");
+        .text((d: any) => d.w > 50 ? this._fp.format(d.value) : "");
     }
 
     const t1: any = transition().duration(600);
@@ -302,7 +303,7 @@ export class Sankey {
         .attr("fill", "none");
 
     links.append("title")
-      .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${formatNumber(d.value)}`);
+      .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${this._fp.format(d.value)}`);
 
     const t: any = transition().duration(600);
     path.transition(t).delay(1000)
@@ -370,7 +371,7 @@ export class Sankey {
       .attr("transform", (d: TNode) => `translate(${d.x} ${d.y})`);
     
     nodes.append("title")
-      .text((d: any) => `${d.name} - ${formatNumber(d.value)}`);
+      .text((d: any) => `${d.name} - ${this._fp.format(d.value)}`);
 
     function dragstart(d: any) {
       if (!d.__x) { d.__x = event.x; }
