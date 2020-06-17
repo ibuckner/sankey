@@ -69,6 +69,7 @@ export class Sankey {
 
   private _extent: [number, number] = [0, 0]; // min/max node values
   private _fp: Intl.NumberFormat = new Intl.NumberFormat("en-GB", { style: "decimal" });
+  private _id: string = "";
   private _linkGenerator: Function = () => true;
   private _scale: any;
   private _layerGap: number = 0;
@@ -185,13 +186,15 @@ export class Sankey {
   // ***** PRIVATE METHODS
 
   private _drawCanvas(): Sankey {
+    this._id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
+  
     const sg: SVGElement = svg(this.container, {
+      class: "sankey",
       height: this.h, 
+      id: this._id,
       margin: this.margin,
       width: this.w
     }) as any;
-    sg.classList.add("sankey");
-    sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
 
     const s = select(sg);
     s.on("click", () => this.clearSelection());
@@ -261,7 +264,6 @@ export class Sankey {
 
   private _drawLinks(): Sankey {
     const svg = select(this.container).select("svg");
-    const id: string = (svg.node() as SVGElement).id;
     const canvas = svg.select(".canvas");
     const fade = this.playback ? " shadow" : "";
 
@@ -284,19 +286,19 @@ export class Sankey {
       .selectAll("g")
       .data(this.links).enter()
       .append("g")
-        .attr("id", d => `${id}_${d.id}`)
+        .attr("id", d => `${this._id}_${d.id}`)
         .attr("class", "link" + fade)
         .on("click", (d: TLink) => this._linkClickHandler(event.target));
 
     this.links.forEach((lk: TLink) => {
-      lk.dom = document.getElementById(`${id}_${lk.id}`) as any;
+      lk.dom = document.getElementById(`${this._id}_${lk.id}`) as any;
     });
 
     selectAll("g.links").lower();
 
     const path = links
       .append("path")
-        .attr("id", d => `${id}_p${d.id}`)
+        .attr("id", d => `${this._id}_p${d.id}`)
         .attr("class", "link")
         .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
         .attr("stroke-width", (d: TLink) => d.w)
@@ -316,7 +318,6 @@ export class Sankey {
   private _drawNodes(): Sankey {
     const self = this;
     const svg = select(this.container).select("svg");
-    const id: string = (svg.node() as SVGElement).id;
     const canvas = svg.select(".canvas");
     const fade = this.playback ? " shadow" : "";
 
@@ -325,7 +326,7 @@ export class Sankey {
       .selectAll("g.node")
       .data(this.nodes).enter()
       .append("g")
-        .attr("id", (d: TNode) => `${id}_${d.id}`)
+        .attr("id", (d: TNode) => `${this._id}_${d.id}`)
         .attr("class", (d: TNode) => "node" + (d.layer > 0 ? fade : ""))
         .attr("transform", (d: TNode) => {
           return this.orient === "horizontal"
@@ -341,13 +342,13 @@ export class Sankey {
         .on("click", () => this._nodeClickHandler(event.currentTarget));
 
     this.nodes.forEach((node: TNode) => {
-      node.dom = document.getElementById(`${id}_${node.id}`) as any;
+      node.dom = document.getElementById(`${this._id}_${node.id}`) as any;
     });
 
     select("g.nodes").raise();
 
     const rect = nodes.append("rect")
-      .attr("id", (d: TNode) => `${id}_r${d.id}`)
+      .attr("id", (d: TNode) => `${this._id}_r${d.id}`)
       .attr("class", "node")
       .attr("height", (d: TNode) => d.h + "px")
       .attr("width", (d: TNode) => d.w + "px")

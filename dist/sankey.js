@@ -4293,6 +4293,12 @@ function svg(container, options) {
     svg.setAttributeNS(null, "viewBox", `0 0 ${options.width} ${options.height}`);
     svg.setAttributeNS(null, "preserveAspectRatio", "xMinYMin meet");
     svg.setAttributeNS(NS.xmlns, "xmlns", NS.svg);
+    if (options.id) {
+        svg.setAttributeNS(null, "id", options.id);
+    }
+    if (options.class) {
+        svg.setAttributeNS(null, "class", options.class);
+    }
     container.appendChild(svg);
     const defs = document.createElementNS(NS.svg, "defs");
     svg.appendChild(defs);
@@ -4321,6 +4327,7 @@ class Sankey {
         this.w = 200;
         this._extent = [0, 0]; // min/max node values
         this._fp = new Intl.NumberFormat("en-GB", { style: "decimal" });
+        this._id = "";
         this._linkGenerator = () => true;
         this._layerGap = 0;
         this._totalLayers = 0;
@@ -4418,13 +4425,14 @@ class Sankey {
     }
     // ***** PRIVATE METHODS
     _drawCanvas() {
+        this._id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
         const sg = svg(this.container, {
+            class: "sankey",
             height: this.h,
+            id: this._id,
             margin: this.margin,
             width: this.w
         });
-        sg.classList.add("sankey");
-        sg.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
         const s = select(sg);
         s.on("click", () => this.clearSelection());
         const defs = s.select("defs");
@@ -4486,7 +4494,6 @@ class Sankey {
     }
     _drawLinks() {
         const svg = select(this.container).select("svg");
-        const id = svg.node().id;
         const canvas = svg.select(".canvas");
         const fade = this.playback ? " shadow" : "";
         if (this.orient === "horizontal") {
@@ -4508,16 +4515,16 @@ class Sankey {
             .selectAll("g")
             .data(this.links).enter()
             .append("g")
-            .attr("id", d => `${id}_${d.id}`)
+            .attr("id", d => `${this._id}_${d.id}`)
             .attr("class", "link" + fade)
             .on("click", (d) => this._linkClickHandler(event.target));
         this.links.forEach((lk) => {
-            lk.dom = document.getElementById(`${id}_${lk.id}`);
+            lk.dom = document.getElementById(`${this._id}_${lk.id}`);
         });
         selectAll("g.links").lower();
         const path = links
             .append("path")
-            .attr("id", d => `${id}_p${d.id}`)
+            .attr("id", d => `${this._id}_p${d.id}`)
             .attr("class", "link")
             .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
             .attr("stroke-width", (d) => d.w)
@@ -4533,7 +4540,6 @@ class Sankey {
     _drawNodes() {
         const self = this;
         const svg = select(this.container).select("svg");
-        const id = svg.node().id;
         const canvas = svg.select(".canvas");
         const fade = this.playback ? " shadow" : "";
         const nodes = canvas.append("g")
@@ -4541,7 +4547,7 @@ class Sankey {
             .selectAll("g.node")
             .data(this.nodes).enter()
             .append("g")
-            .attr("id", (d) => `${id}_${d.id}`)
+            .attr("id", (d) => `${this._id}_${d.id}`)
             .attr("class", (d) => "node" + (d.layer > 0 ? fade : ""))
             .attr("transform", (d) => {
             return this.orient === "horizontal"
@@ -4556,11 +4562,11 @@ class Sankey {
             .on("end", dragend))
             .on("click", () => this._nodeClickHandler(event.currentTarget));
         this.nodes.forEach((node) => {
-            node.dom = document.getElementById(`${id}_${node.id}`);
+            node.dom = document.getElementById(`${this._id}_${node.id}`);
         });
         select("g.nodes").raise();
         const rect = nodes.append("rect")
-            .attr("id", (d) => `${id}_r${d.id}`)
+            .attr("id", (d) => `${this._id}_r${d.id}`)
             .attr("class", "node")
             .attr("height", (d) => d.h + "px")
             .attr("width", (d) => d.w + "px")
