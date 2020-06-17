@@ -3,7 +3,7 @@ import { scaleLinear } from "d3-scale";
 import { transition } from "d3-transition";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
-import { measure, svg, TMargin } from "@buckneri/spline";
+import { svg, TMargin } from "@buckneri/spline";
 
 export type TLink = {
   dom: SVGElement,
@@ -87,7 +87,7 @@ export class Sankey {
 
     if (options.container !== undefined) {
       this.container = options.container;
-      const box: DOMRect = measure(this.container);
+      const box: DOMRect = this.container.getBoundingClientRect();
       this.h = box.height;
       this.w = box.width;
       this.rh = this.h - this.margin.top - this.margin.bottom;

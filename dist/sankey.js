@@ -4241,7 +4241,7 @@ const NS = {
  * @returns - DOMRect
  */
 function measure(container) {
-    let result = container.getBoundingClientRect();
+    let result = JSON.parse(JSON.stringify(container.getBoundingClientRect()));
     const s = window.getComputedStyle(container);
     let ph = parseFloat(s.paddingTop) + parseFloat(s.paddingBottom);
     let pw = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
@@ -4309,8 +4309,8 @@ function svg(container, options) {
     return svg;
 }
 
-class Sankey {
-    constructor(options) {
+var Sankey = /** @class */ (function () {
+    function Sankey(options) {
         this.container = document.querySelector("body");
         this.h = 200;
         this.links = [];
@@ -4328,11 +4328,11 @@ class Sankey {
         this._extent = [0, 0]; // min/max node values
         this._fp = new Intl.NumberFormat("en-GB", { style: "decimal" });
         this._id = "";
-        this._linkGenerator = () => true;
+        this._linkGenerator = function () { return true; };
         this._layerGap = 0;
         this._totalLayers = 0;
         if (options.margin !== undefined) {
-            let m = options.margin;
+            var m = options.margin;
             m.left = isNaN(m.left) ? 0 : m.left;
             m.right = isNaN(m.right) ? 0 : m.right;
             m.top = isNaN(m.top) ? 0 : m.top;
@@ -4341,7 +4341,7 @@ class Sankey {
         }
         if (options.container !== undefined) {
             this.container = options.container;
-            const box = measure(this.container);
+            var box = this.container.getBoundingClientRect();
             this.h = box.height;
             this.w = box.width;
             this.rh = this.h - this.margin.top - this.margin.bottom;
@@ -4371,41 +4371,41 @@ class Sankey {
     /**
      * Clears selection from Sankey
      */
-    clearSelection() {
+    Sankey.prototype.clearSelection = function () {
         selectAll(".selected").classed("selected", false);
         return this;
-    }
+    };
     /**
      * Saves data into Sankey
      * @param nodes - Sankey nodes
      * @param links - Sankey links
      */
-    data(nodes, links) {
+    Sankey.prototype.data = function (nodes, links) {
         this._initDataStructure(nodes, links);
         return this;
-    }
+    };
     /**
      * Removes this chart from the DOM
      */
-    destroy() {
+    Sankey.prototype.destroy = function () {
         select(this.container).select("svg").remove();
         return this;
-    }
+    };
     /**
      * draws the Sankey
      */
-    draw() {
+    Sankey.prototype.draw = function () {
         this._drawCanvas()
             ._drawNodes()
             ._drawLinks()
             ._drawLabels()
             ._drawPlayback();
         return this;
-    }
+    };
     /**
      * Recalculate internal values
      */
-    initialise() {
+    Sankey.prototype.initialise = function () {
         this._nodeValueLayer()
             ._scalingExtent()
             ._scaling()
@@ -4414,145 +4414,149 @@ class Sankey {
             ._positionNodeInLayer()
             ._positionLinks();
         return this;
-    }
+    };
     /**
      * Serialise the Sankey data
      */
-    toString() {
-        let nodes = this.nodes.map(n => `${n.name}: ${n.value} (L: ${n.layer})`).join("\n");
-        let links = this.links.map(l => `${l.nodeIn.name}->${l.nodeOut.name}`).join("\n");
-        return `nodes:\n${nodes}\n\nlinks:\n${links}`;
-    }
+    Sankey.prototype.toString = function () {
+        var nodes = this.nodes.map(function (n) { return n.name + ": " + n.value + " (L: " + n.layer + ")"; }).join("\n");
+        var links = this.links.map(function (l) { return l.nodeIn.name + "->" + l.nodeOut.name; }).join("\n");
+        return "nodes:\n" + nodes + "\n\nlinks:\n" + links;
+    };
     // ***** PRIVATE METHODS
-    _drawCanvas() {
+    Sankey.prototype._drawCanvas = function () {
+        var _this = this;
         this._id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
-        const sg = svg(this.container, {
+        var sg = svg(this.container, {
             class: "sankey",
             height: this.h,
             id: this._id,
             margin: this.margin,
             width: this.w
         });
-        const s = select(sg);
-        s.on("click", () => this.clearSelection());
-        const defs = s.select("defs");
-        const gb = defs.append("filter").attr("id", "blur");
+        var s = select(sg);
+        s.on("click", function () { return _this.clearSelection(); });
+        var defs = s.select("defs");
+        var gb = defs.append("filter").attr("id", "blur");
         gb.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 5);
         return this;
-    }
-    _drawLabels() {
-        const canvas = select(this.container).select(".canvas");
-        const nodes = canvas.selectAll("g.node");
-        const fade = this.playback ? " shadow" : "";
-        const outerLabel = nodes.append("text")
-            .attr("class", (d) => "node-label outer" + (d.layer > 0 ? fade : ""))
+    };
+    Sankey.prototype._drawLabels = function () {
+        var _this = this;
+        var canvas = select(this.container).select(".canvas");
+        var nodes = canvas.selectAll("g.node");
+        var fade = this.playback ? " shadow" : "";
+        var outerLabel = nodes.append("text")
+            .attr("class", function (d) { return "node-label outer" + (d.layer > 0 ? fade : ""); })
             .attr("dy", "0.35em")
             .attr("opacity", 0);
         if (this.orient === "horizontal") {
             outerLabel
-                .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
-                .attr("y", (d) => d.h / 2)
-                .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
-                .style("opacity", (d) => d.h > 20 ? null : 0)
-                .text((d) => d.name);
+                .attr("x", function (d) { return d.x < (_this.rw / 2) ? _this.nodeSize + 6 : -6; })
+                .attr("y", function (d) { return d.h / 2; })
+                .attr("text-anchor", function (d) { return d.x + _this.nodeSize > _this.rw / 2 ? "end" : "start"; })
+                .style("opacity", function (d) { return d.h > 20 ? null : 0; })
+                .text(function (d) { return d.name; });
         }
         else {
             outerLabel
-                .attr("x", (d) => d.w / 2)
-                .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
+                .attr("x", function (d) { return d.w / 2; })
+                .attr("y", function (d) { return d.y < (_this.rh / 2) ? _this.nodeSize + 10 : -10; })
                 .attr("text-anchor", "middle")
-                .text((d) => d.w > d.name.length * 7 ? d.name : "");
+                .text(function (d) { return d.w > d.name.length * 7 ? d.name : ""; });
         }
-        const innerLabel = nodes.append("text")
-            .attr("class", (d) => "node-label inner" + (d.layer > 0 ? fade : ""))
+        var innerLabel = nodes.append("text")
+            .attr("class", function (d) { return "node-label inner" + (d.layer > 0 ? fade : ""); })
             .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
             .attr("opacity", 0);
         if (this.orient === "horizontal") {
             innerLabel
-                .attr("x", (d) => -d.h / 2)
-                .attr("y", () => this.nodeSize / 2)
+                .attr("x", function (d) { return -d.h / 2; })
+                .attr("y", function () { return _this.nodeSize / 2; })
                 .attr("transform", "rotate(270)")
-                .text((d) => d.h > 50 ? this._fp.format(d.value) : "");
+                .text(function (d) { return d.h > 50 ? _this._fp.format(d.value) : ""; });
         }
         else {
             innerLabel
-                .attr("x", (d) => d.w / 2)
-                .attr("y", () => this.nodeSize / 2)
-                .text((d) => d.w > 50 ? this._fp.format(d.value) : "");
+                .attr("x", function (d) { return d.w / 2; })
+                .attr("y", function () { return _this.nodeSize / 2; })
+                .text(function (d) { return d.w > 50 ? _this._fp.format(d.value) : ""; });
         }
-        const t1 = transition().duration(600);
+        var t1 = transition().duration(600);
         if (this.orient === "horizontal") {
-            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
-            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.h > 50 ? 1 : 0);
+            outerLabel.transition(t1).delay(1000).style("opacity", function (d) { return d.h > 50 ? 1 : 0; });
+            innerLabel.transition(t1).delay(1000).style("opacity", function (d) { return d.h > 50 ? 1 : 0; });
         }
         else {
-            outerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
-            innerLabel.transition(t1).delay(1000).style("opacity", (d) => d.w > 50 ? 1 : 0);
+            outerLabel.transition(t1).delay(1000).style("opacity", function (d) { return d.w > 50 ? 1 : 0; });
+            innerLabel.transition(t1).delay(1000).style("opacity", function (d) { return d.w > 50 ? 1 : 0; });
         }
         return this;
-    }
-    _drawLinks() {
-        const svg = select(this.container).select("svg");
-        const canvas = svg.select(".canvas");
-        const fade = this.playback ? " shadow" : "";
+    };
+    Sankey.prototype._drawLinks = function () {
+        var _this = this;
+        var svg = select(this.container).select("svg");
+        var canvas = svg.select(".canvas");
+        var fade = this.playback ? " shadow" : "";
         if (this.orient === "horizontal") {
             this._linkGenerator = linkHorizontal()
-                .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
-                .target((d) => [d.nodeOut.x, d.y1])
-                .x((d) => d[0])
-                .y((d) => d[1]);
+                .source(function (d) { return [d.nodeIn.x + _this.nodeSize, d.y0]; })
+                .target(function (d) { return [d.nodeOut.x, d.y1]; })
+                .x(function (d) { return d[0]; })
+                .y(function (d) { return d[1]; });
         }
         else {
             this._linkGenerator = linkVertical()
-                .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
-                .target((d) => [d.y1, d.nodeOut.y])
-                .x((d) => d[0])
-                .y((d) => d[1]);
+                .source(function (d) { return [d.y0, d.nodeIn.y + _this.nodeSize]; })
+                .target(function (d) { return [d.y1, d.nodeOut.y]; })
+                .x(function (d) { return d[0]; })
+                .y(function (d) { return d[1]; });
         }
-        const links = canvas.append("g")
+        var links = canvas.append("g")
             .attr("class", "links")
             .selectAll("g")
             .data(this.links).enter()
             .append("g")
-            .attr("id", d => `${this._id}_${d.id}`)
+            .attr("id", function (d) { return _this._id + "_" + d.id; })
             .attr("class", "link" + fade)
-            .on("click", (d) => this._linkClickHandler(event.target));
-        this.links.forEach((lk) => {
-            lk.dom = document.getElementById(`${this._id}_${lk.id}`);
+            .on("click", function (d) { return _this._linkClickHandler(event.target); });
+        this.links.forEach(function (lk) {
+            lk.dom = document.getElementById(_this._id + "_" + lk.id);
         });
         selectAll("g.links").lower();
-        const path = links
+        var path = links
             .append("path")
-            .attr("id", d => `${this._id}_p${d.id}`)
+            .attr("id", function (d) { return _this._id + "_p" + d.id; })
             .attr("class", "link")
-            .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
-            .attr("stroke-width", (d) => d.w)
+            .attr("stroke", function (d) { return d.fill ? d.fill : d.nodeIn.fill; })
+            .attr("stroke-width", function (d) { return d.w; })
             .attr("fill", "none");
         links.append("title")
-            .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${this._fp.format(d.value)}`);
-        const t = transition().duration(600);
+            .text(function (d) { return d.nodeIn.name + " -> " + d.nodeOut.name + " - " + _this._fp.format(d.value); });
+        var t = transition().duration(600);
         path.transition(t).delay(1000)
             // @ts-ignore
-            .attr("d", d => this._linkGenerator(d));
+            .attr("d", function (d) { return _this._linkGenerator(d); });
         return this;
-    }
-    _drawNodes() {
-        const self = this;
-        const svg = select(this.container).select("svg");
-        const canvas = svg.select(".canvas");
-        const fade = this.playback ? " shadow" : "";
-        const nodes = canvas.append("g")
+    };
+    Sankey.prototype._drawNodes = function () {
+        var _this = this;
+        var self = this;
+        var svg = select(this.container).select("svg");
+        var canvas = svg.select(".canvas");
+        var fade = this.playback ? " shadow" : "";
+        var nodes = canvas.append("g")
             .attr("class", "nodes")
             .selectAll("g.node")
             .data(this.nodes).enter()
             .append("g")
-            .attr("id", (d) => `${this._id}_${d.id}`)
-            .attr("class", (d) => "node" + (d.layer > 0 ? fade : ""))
-            .attr("transform", (d) => {
-            return this.orient === "horizontal"
-                ? `translate(${d.x},${-d.h})`
-                : `translate(${-d.w},${d.y})`;
+            .attr("id", function (d) { return _this._id + "_" + d.id; })
+            .attr("class", function (d) { return "node" + (d.layer > 0 ? fade : ""); })
+            .attr("transform", function (d) {
+            return _this.orient === "horizontal"
+                ? "translate(" + d.x + "," + -d.h + ")"
+                : "translate(" + -d.w + "," + d.y + ")";
         })
             .call(
         // @ts-ignore
@@ -4560,33 +4564,33 @@ class Sankey {
             .on("start", dragstart)
             .on("drag", dragmove)
             .on("end", dragend))
-            .on("click", () => this._nodeClickHandler(event.currentTarget));
-        this.nodes.forEach((node) => {
-            node.dom = document.getElementById(`${this._id}_${node.id}`);
+            .on("click", function () { return _this._nodeClickHandler(event.currentTarget); });
+        this.nodes.forEach(function (node) {
+            node.dom = document.getElementById(_this._id + "_" + node.id);
         });
         select("g.nodes").raise();
-        const rect = nodes.append("rect")
-            .attr("id", (d) => `${this._id}_r${d.id}`)
+        var rect = nodes.append("rect")
+            .attr("id", function (d) { return _this._id + "_r" + d.id; })
             .attr("class", "node")
-            .attr("height", (d) => d.h + "px")
-            .attr("width", (d) => d.w + "px")
-            .attr("fill", (d) => d.fill)
+            .attr("height", function (d) { return d.h + "px"; })
+            .attr("width", function (d) { return d.w + "px"; })
+            .attr("fill", function (d) { return d.fill; })
             .attr("x", 0)
             .attr("y", 0)
             .style("opacity", 0);
         nodes.append("rect")
             .attr("class", "shadow node")
-            .attr("height", (d) => (this.playback ? d.h : 0) + "px")
-            .attr("width", (d) => (this.playback ? d.w : 0) + "px")
+            .attr("height", function (d) { return (_this.playback ? d.h : 0) + "px"; })
+            .attr("width", function (d) { return (_this.playback ? d.w : 0) + "px"; })
             .attr("x", 0)
             .attr("y", 0);
-        const t1 = transition().duration(600);
-        rect.transition(t1).delay((d) => d.layer * 100)
+        var t1 = transition().duration(600);
+        rect.transition(t1).delay(function (d) { return d.layer * 100; })
             .style("opacity", 1);
         nodes.transition(t1)
-            .attr("transform", (d) => `translate(${d.x} ${d.y})`);
+            .attr("transform", function (d) { return "translate(" + d.x + " " + d.y + ")"; });
         nodes.append("title")
-            .text((d) => `${d.name} - ${this._fp.format(d.value)}`);
+            .text(function (d) { return d.name + " - " + _this._fp.format(d.value); });
         function dragstart(d) {
             if (!d.__x) {
                 d.__x = event.x;
@@ -4604,8 +4608,8 @@ class Sankey {
         function dragmove(d) {
             select(this)
                 .attr("transform", function (d) {
-                const dx = event.x - d.__x;
-                const dy = event.y - d.__y;
+                var dx = event.x - d.__x;
+                var dy = event.y - d.__y;
                 // x direction
                 if (self.nodeMoveX) {
                     d.x = d.__x0 + dx;
@@ -4620,11 +4624,11 @@ class Sankey {
                         d.y = 0;
                     }
                 }
-                return `translate(${d.x}, ${d.y})`;
+                return "translate(" + d.x + ", " + d.y + ")";
             });
             self._positionLinks();
             selectAll("path.link")
-                .attr("d", d => self._linkGenerator(d));
+                .attr("d", function (d) { return self._linkGenerator(d); });
         }
         function dragend(d) {
             delete d.__x;
@@ -4635,31 +4639,33 @@ class Sankey {
             delete d.__y1;
         }
         return this;
-    }
-    _drawPlayback() {
+    };
+    Sankey.prototype._drawPlayback = function () {
+        var _this = this;
         if (this.playback) {
-            this.nodes.forEach((node) => {
+            this.nodes.forEach(function (node) {
                 if (node.story && node.linksOut.length > 0) {
-                    const c = select(node.dom).append("circle")
+                    var c = select(node.dom).append("circle")
                         .attr("class", "playback-prompt")
                         .attr("cx", node.w / 2)
                         .attr("cy", node.h / 2)
                         .attr("filter", "url(#blur)")
                         .attr("r", 0)
-                        .on("click", () => this._playbackClickHandler(event.currentTarget));
+                        .on("click", function () { return _this._playbackClickHandler(event.currentTarget); });
                     c.append("title").text("View notes about this flow stage");
                     c.transition().duration(3000).attr("r", 15);
                 }
             });
         }
         return this;
-    }
+    };
     /**
      * Creates the initial data structures
      */
-    _initDataStructure(nodes, links) {
-        nodes.forEach((node, i) => {
-            const n = node;
+    Sankey.prototype._initDataStructure = function (nodes, links) {
+        var _this = this;
+        nodes.forEach(function (node, i) {
+            var n = node;
             n.h = 0; // height
             n.id = i + 1;
             n.layer = -1; // denotes membership to a visual grouping
@@ -4668,65 +4674,66 @@ class Sankey {
             n.w = 0; // width
             n.x = 0; // position onscreen
             n.y = 0;
-            this.nodes.push(n);
+            _this.nodes.push(n);
         });
-        links.forEach((link, i) => {
-            const l = link;
-            l.nodeIn = this.nodes[link.source]; // replaces source in other sankey models
-            l.nodeOut = this.nodes[link.target]; // ditto target
+        links.forEach(function (link, i) {
+            var l = link;
+            l.nodeIn = _this.nodes[link.source]; // replaces source in other sankey models
+            l.nodeOut = _this.nodes[link.target]; // ditto target
             l.id = "L" + (i + 1);
             l.w = 0; // width
             l.y0 = 0; // value at source node (horizontal: top right y, vertical: bottom left x)
             l.y1 = 0; // value at target node (horizontal: bottom left y, vertical; top right x)
-            this.links.push(l);
-            this.links[i].nodeIn.linksOut.push(this.links[i]);
-            this.links[i].nodeOut.linksIn.push(this.links[i]);
+            _this.links.push(l);
+            _this.links[i].nodeIn.linksOut.push(_this.links[i]);
+            _this.links[i].nodeOut.linksIn.push(_this.links[i]);
         });
-    }
-    _linkClickHandler(el) {
+    };
+    Sankey.prototype._linkClickHandler = function (el) {
         event.stopPropagation();
         this.clearSelection();
         window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
         select(el).classed("selected", true);
-    }
-    _nodeClickHandler(el) {
+    };
+    Sankey.prototype._nodeClickHandler = function (el) {
         event.stopPropagation();
         this.clearSelection();
-        const activeNode = select(el);
-        const dt = activeNode.datum();
+        var activeNode = select(el);
+        var dt = activeNode.datum();
         window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-        dt.linksIn.forEach((link) => {
+        dt.linksIn.forEach(function (link) {
             select(link.dom).select("path").classed("selected", true);
         });
-        dt.linksOut.forEach((link) => {
+        dt.linksOut.forEach(function (link) {
             select(link.dom).select("path").classed("selected", true);
         });
-    }
-    _playbackClickHandler(el) {
+    };
+    Sankey.prototype._playbackClickHandler = function (el) {
+        var _this = this;
         event.stopPropagation();
         this.clearSelection();
-        const button = select(el);
+        var button = select(el);
         button.transition().duration(1000)
             .attr("r", 0)
             .transition().duration(0)
             .remove();
-        const activeNode = select(el.parentNode);
-        const dt = activeNode.datum();
-        const narrate = [];
+        var activeNode = select(el.parentNode);
+        var dt = activeNode.datum();
+        var narrate = [];
         if (dt.story) {
             narrate.push(dt);
         }
         if (dt.linksOut.length > 0) {
-            dt.linksOut.forEach((link) => {
+            dt.linksOut.forEach(function (link) {
                 select(link.dom).classed("shadow", false);
                 if (link.story) {
                     narrate.push(link);
                 }
             });
-            this.nodes.forEach((node) => {
-                let sum = 0, breakdown = false;
+            this.nodes.forEach(function (node) {
+                var sum = 0, breakdown = false;
                 if (node.linksIn.length > 0 || node === dt) {
-                    node.linksIn.forEach((link) => {
+                    node.linksIn.forEach(function (link) {
                         if (select(link.dom).classed("shadow")) {
                             sum += link.value;
                         }
@@ -4735,17 +4742,17 @@ class Sankey {
                         }
                     });
                     if (breakdown || (node === dt && node.linksIn.length === 0)) {
-                        sum = this._scale(sum);
+                        sum = _this._scale(sum);
                         sum = sum >= 0 ? sum : 0;
-                        const shadow = select(node.dom).select(".shadow");
-                        if (this.orient === "horizontal") {
+                        var shadow = select(node.dom).select(".shadow");
+                        if (_this.orient === "horizontal") {
                             shadow.transition().duration(500)
-                                .attr("height", `${sum}px`);
+                                .attr("height", sum + "px");
                         }
                         else {
-                            let x = parseFloat(select(node.dom).attr("x"));
+                            var x = parseFloat(select(node.dom).attr("x"));
                             shadow.transition().duration(500)
-                                .attr("width", `${sum}px`)
+                                .attr("width", sum + "px")
                                 .attr("x", x + sum);
                         }
                         if (sum === 0) {
@@ -4757,45 +4764,46 @@ class Sankey {
             });
         }
         window.dispatchEvent(new CustomEvent("node-playback", { detail: narrate }));
-    }
+    };
     /**
      * Sets height and width of node
      */
-    _nodeSize() {
-        this.nodes.forEach((node) => {
-            if (this.orient === "horizontal") {
-                node.h = Math.max(1, this._scale(node.value));
-                node.w = this.nodeSize;
+    Sankey.prototype._nodeSize = function () {
+        var _this = this;
+        this.nodes.forEach(function (node) {
+            if (_this.orient === "horizontal") {
+                node.h = Math.max(1, _this._scale(node.value));
+                node.w = _this.nodeSize;
             }
             else {
-                node.h = this.nodeSize;
-                node.w = Math.max(1, this._scale(node.value));
+                node.h = _this.nodeSize;
+                node.w = Math.max(1, _this._scale(node.value));
             }
         });
         return this;
-    }
+    };
     /**
      * Determines each node dimension and layer attribution and finally determines node order within layer
      */
-    _nodeValueLayer() {
-        const track = new Map();
-        let max = 0;
-        this.nodes.forEach((node) => {
+    Sankey.prototype._nodeValueLayer = function () {
+        var track = new Map();
+        var max = 0;
+        this.nodes.forEach(function (node) {
             // calculate value if not already provided
             if (node.value === undefined) {
-                node.value = Math.max(1, node.linksIn.map(link => link.value).reduce((ac, s) => ac + s, 0), node.linksOut.map(link => link.value).reduce((ac, s) => ac + s, 0));
+                node.value = Math.max(1, node.linksIn.map(function (link) { return link.value; }).reduce(function (ac, s) { return ac + s; }, 0), node.linksOut.map(function (link) { return link.value; }).reduce(function (ac, s) { return ac + s; }, 0));
             }
             // calculate layer value
             if (node.linksIn.length === 0) {
                 node.layer = 0;
                 track.set(node.id, []);
             }
-            node.linksOut.forEach((link) => {
+            node.linksOut.forEach(function (link) {
                 if (track.has(link.nodeOut.id)) {
-                    const parent = track.get(node.id);
-                    if (parent.findIndex((e) => e === link.nodeOut.id) === -1) {
+                    var parent_1 = track.get(node.id);
+                    if (parent_1.findIndex(function (e) { return e === link.nodeOut.id; }) === -1) {
                         link.nodeOut.layer = node.layer + 1;
-                        const a = track.get(link.nodeOut.id);
+                        var a = track.get(link.nodeOut.id);
                         a.push(node.id);
                         track.set(link.nodeOut.id, a);
                     }
@@ -4810,25 +4818,26 @@ class Sankey {
         this._totalLayers = max;
         this._layerGap = (this.orient === "horizontal" ? this.rw : this.rh) / this._totalLayers;
         // sort: by layer asc then by size then by a-z name
-        this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));
+        this.nodes.sort(function (a, b) { return a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1); });
         return this;
-    }
+    };
     /**
      * Positions links relative to sourcec and destination nodes
      */
-    _positionLinks() {
+    Sankey.prototype._positionLinks = function () {
+        var _this = this;
         // sort: by size then by a-z name
-        this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
-        const source = new Map();
-        const target = new Map();
-        this.links.forEach((link) => {
-            let src = 0, tgt = 0;
-            link.w = Math.max(1, this._scale(link.value));
+        this.links.sort(function (a, b) { return b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1); });
+        var source = new Map();
+        var target = new Map();
+        this.links.forEach(function (link) {
+            var src = 0, tgt = 0;
+            link.w = Math.max(1, _this._scale(link.value));
             if (!source.has(link.nodeIn.id)) {
-                source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
+                source.set(link.nodeIn.id, (_this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
             }
             if (!target.has(link.nodeOut.id)) {
-                target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
+                target.set(link.nodeOut.id, (_this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
             }
             src = source.get(link.nodeIn.id);
             link.y0 = src + (link.w / 2);
@@ -4838,16 +4847,17 @@ class Sankey {
             target.set(link.nodeOut.id, link.y1 + (link.w / 2));
         });
         return this;
-    }
+    };
     /**
      * spreads the nodes across the chart space by layer
      */
-    _positionNodeByLayer() {
+    Sankey.prototype._positionNodeByLayer = function () {
+        var _this = this;
         if (this.orient === "horizontal") {
-            this.nodes.forEach((node) => {
-                node.x = node.layer * this._layerGap;
-                if (node.x >= this.rw) {
-                    node.x -= this.nodeSize;
+            this.nodes.forEach(function (node) {
+                node.x = node.layer * _this._layerGap;
+                if (node.x >= _this.rw) {
+                    node.x -= _this.nodeSize;
                 }
                 else if (node.x < 0) {
                     node.x = 0;
@@ -4855,10 +4865,10 @@ class Sankey {
             });
         }
         else {
-            this.nodes.forEach((node) => {
-                node.y = node.layer * this._layerGap;
-                if (node.y >= this.rh) {
-                    node.y -= this.nodeSize;
+            this.nodes.forEach(function (node) {
+                node.y = node.layer * _this._layerGap;
+                if (node.y >= _this.rh) {
+                    node.y -= _this.nodeSize;
                 }
                 else if (node.y < 0) {
                     node.y = 0;
@@ -4866,76 +4876,77 @@ class Sankey {
             });
         }
         return this;
-    }
+    };
     /**
      * spreads the nodes within layer
      */
-    _positionNodeInLayer() {
-        let layer = -1, n = 0;
-        let layerTracker = [];
+    Sankey.prototype._positionNodeInLayer = function () {
+        var _this = this;
+        var layer = -1, n = 0;
+        var layerTracker = [];
         if (this.orient === "horizontal") {
-            this.nodes.forEach((node) => {
+            this.nodes.forEach(function (node) {
                 if (layer === node.layer) {
                     node.y = n;
-                    n += node.h + this.padding;
+                    n += node.h + _this.padding;
                     layerTracker[layer].sum = n;
                     layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.y = 0;
-                    n = node.h + this.padding;
-                    layerTracker.push({ nodes: [node], sum: n, total: this.rh });
+                    n = node.h + _this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: _this.rh });
                 }
             });
         }
         else {
-            this.nodes.forEach((node) => {
+            this.nodes.forEach(function (node) {
                 if (layer === node.layer) {
                     node.x = n;
-                    n += node.w + this.padding;
+                    n += node.w + _this.padding;
                     layerTracker[layer].sum = n;
                     layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.x = 0;
-                    n = node.w + this.padding;
-                    layerTracker.push({ nodes: [node], sum: n, total: this.rw });
+                    n = node.w + _this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: _this.rw });
                 }
             });
         }
         // 2nd pass to widen out layers too tightly clustered together
-        layerTracker.forEach(layer => {
+        layerTracker.forEach(function (layer) {
             if (layer.sum * 1.2 < layer.total && layer.nodes.length > 1) {
-                const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
-                layer.nodes.forEach((node, i) => {
-                    if (this.orient === "horizontal") {
-                        node.y += (i + 1) * customPad;
+                var customPad_1 = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
+                layer.nodes.forEach(function (node, i) {
+                    if (_this.orient === "horizontal") {
+                        node.y += (i + 1) * customPad_1;
                     }
                     else {
-                        node.x += (i + 1) * customPad;
+                        node.x += (i + 1) * customPad_1;
                     }
                 });
             }
         });
         return this;
-    }
+    };
     /**
      * Calculates the chart scale
      */
-    _scaling() {
-        const rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
+    Sankey.prototype._scaling = function () {
+        var rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
         this._scale = linear$1().domain(this._extent).range(rng);
         return this;
-    }
+    };
     /**
      * Determines the minimum and maximum extent values to scale nodes by
      */
-    _scalingExtent() {
-        this._extent[0] = this.nodes.reduce((ac, n) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
-        let max = this._extent[0], layer = 0, runningTotal = 0;
-        this.nodes.forEach((node) => {
+    Sankey.prototype._scalingExtent = function () {
+        this._extent[0] = this.nodes.reduce(function (ac, n) { return (ac === undefined || n.value < ac) ? n.value : ac; }, 0);
+        var max = this._extent[0], layer = 0, runningTotal = 0;
+        this.nodes.forEach(function (node) {
             if (node.layer === layer) {
                 runningTotal += node.value;
             }
@@ -4947,7 +4958,8 @@ class Sankey {
         });
         this._extent[1] = (runningTotal > max ? runningTotal : max) + (this.padding * (this.nodes.length * 2.5));
         return this;
-    }
-}
+    };
+    return Sankey;
+}());
 
 export { Sankey };

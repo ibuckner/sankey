@@ -1,6 +1,6 @@
 {
   "name": "@buckneri/sankey",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Just a sankey visualisation",
   "main": "./dist/sankey.js",
   "types": "./dist/index.d.ts",
@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/ibuckner/sankey#readme",
   "dependencies": {
-    "@buckneri/spline": "^0.6.1",
+    "@buckneri/spline": "^0.6.2",
     "d3-drag": "^1.2.5",
     "d3-path": "^1.0.9",
     "d3-scale": "^3.2.1",

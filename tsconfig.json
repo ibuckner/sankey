@@ -14,8 +14,7 @@
     "moduleResolution": "node",
     "removeComments": false,
     "strict": true,
-    "target": "es2015",
-    "tsBuildInfoFile": ".buildcache/default",
+    "target": "es5",
     "typeRoots": ["./node_modules/@types"]
   },
   "exclude": [
