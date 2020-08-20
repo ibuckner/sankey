@@ -32,7 +32,7 @@ rect.node {
 }
 
 .node {
-  transition: opacity 500ms;
+  transition: opacity 500ms ease-in-out;
 }
 
 .node:hover {
@@ -48,4 +48,8 @@ text {
      -moz-user-select: none;
       -ms-user-select: none;
           user-select: none;
+}
+
+text.node-label.inner {
+  transition: opacity 500ms ease-in-out;
 }

@@ -34,7 +34,7 @@ rect.node {
 }
 
 .node {
-  transition: opacity 500ms;
+  @include globals.transition(opacity);
 }
 
 .node:hover {
@@ -47,4 +47,8 @@ rect {
 
 text {
   user-select: none;
+}
+
+text.node-label.inner {
+  @include globals.transition(opacity);
 }

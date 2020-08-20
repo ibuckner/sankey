@@ -1,6 +1,5 @@
 import { event, select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
-import { transition } from "d3-transition";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
 import { svg, TMargin } from "@buckneri/spline";
@@ -250,13 +249,12 @@ export class Sankey {
         .text((d: any) => d.w > 50 ? this._fp.format(d.value) : "");
     }
 
-    const t1: any = transition().duration(600);
     if ( this.orient === "horizontal") {
-      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
-      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+      outerLabel.style("opacity", (d: any) => d.h > 50 ? 1 : 0);
+      innerLabel.style("opacity", (d: any) => d.h > 50 ? 1 : 0);
     } else {
-      outerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
-      innerLabel.transition(t1).delay(1000).style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+      outerLabel.style("opacity", (d: any) => d.w > 50 ? 1 : 0);
+      innerLabel.style("opacity", (d: any) => d.w > 50 ? 1 : 0);
     }
 
     return this;
@@ -307,10 +305,8 @@ export class Sankey {
     links.append("title")
       .text((d: TLink) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${this._fp.format(d.value)}`);
 
-    const t: any = transition().duration(600);
-    path.transition(t).delay(1000)
-      // @ts-ignore
-      .attr("d", d => this._linkGenerator(d));
+
+    path.attr("d", d => this._linkGenerator(d));
 
     return this;
   }
@@ -355,7 +351,7 @@ export class Sankey {
       .attr("fill", (d: TNode) => d.fill)
       .attr("x", 0)
       .attr("y", 0)
-      .style("opacity", 0);
+      .attr("opacity", 1);
 
     nodes.append("rect")
       .attr("class", "shadow node")
@@ -363,12 +359,8 @@ export class Sankey {
       .attr("width", (d: TNode) => (this.playback ? d.w : 0) + "px")
       .attr("x", 0)
       .attr("y", 0);
-
-    const t1: any = transition().duration(600);
-    rect.transition(t1).delay((d: any) => d.layer * 100)
-      .style("opacity", 1);
-
-    nodes.transition(t1)
+    
+    nodes
       .attr("transform", (d: TNode) => `translate(${d.x} ${d.y})`);
     
     nodes.append("title")
@@ -435,7 +427,7 @@ export class Sankey {
             .attr("r", 0)
             .on("click", () => this._playbackClickHandler(event.currentTarget));
           c.append("title").text("View notes about this flow stage");
-          c.transition().duration(3000).attr("r", 15);
+          c.attr("r", 15);
         }
       });
     }
@@ -499,9 +491,8 @@ export class Sankey {
     event.stopPropagation();
     this.clearSelection();
     const button = select(el);
-    button.transition().duration(1000)
+    button
       .attr("r", 0)
-      .transition().duration(0)
       .remove();
     const activeNode = select(el.parentNode as SVGElement);
     const dt = activeNode.datum() as TNode;
@@ -533,18 +524,17 @@ export class Sankey {
             const shadow = select(node.dom).select(".shadow");
   
             if (this.orient === "horizontal") {
-              shadow.transition().duration(500)
+              shadow
                 .attr("height", `${sum}px`);
             } else {
               let x = parseFloat(select(node.dom).attr("x"));
-              shadow.transition().duration(500)
+              shadow
                 .attr("width", `${sum}px`)
                 .attr("x", x + sum);
             }
 
             if (sum === 0) {
-              shadow.transition().delay(600)
-                .remove();
+              shadow.remove();
             }
           }
         }
