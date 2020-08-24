@@ -14,7 +14,7 @@ var chart = (function (exports) {
   function namespace(name) {
     var prefix = name += "", i = prefix.indexOf(":");
     if (i >= 0 && (prefix = name.slice(0, i)) !== "xmlns") name = name.slice(i + 1);
-    return namespaces.hasOwnProperty(prefix) ? {space: namespaces[prefix], local: name} : name;
+    return namespaces.hasOwnProperty(prefix) ? {space: namespaces[prefix], local: name} : name; // eslint-disable-line no-prototype-builtins
   }
 
   function creatorInherit(name) {
@@ -63,6 +63,12 @@ var chart = (function (exports) {
     return new Selection(subgroups, this._parents);
   }
 
+  function array(x) {
+    return typeof x === "object" && "length" in x
+      ? x // Array, TypedArray, NodeList, array-like
+      : Array.from(x); // Map, Set, iterable, string, or anything else
+  }
+
   function empty() {
     return [];
   }
@@ -73,8 +79,16 @@ var chart = (function (exports) {
     };
   }
 
+  function arrayAll(select) {
+    return function() {
+      var group = select.apply(this, arguments);
+      return group == null ? [] : array(group);
+    };
+  }
+
   function selection_selectAll(select) {
-    if (typeof select !== "function") select = selectorAll(select);
+    if (typeof select === "function") select = arrayAll(select);
+    else select = selectorAll(select);
 
     for (var groups = this._groups, m = groups.length, subgroups = [], parents = [], j = 0; j < m; ++j) {
       for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
@@ -92,6 +106,46 @@ var chart = (function (exports) {
     return function() {
       return this.matches(selector);
     };
+  }
+
+  function childMatcher(selector) {
+    return function(node) {
+      return node.matches(selector);
+    };
+  }
+
+  var find = Array.prototype.find;
+
+  function childFind(match) {
+    return function() {
+      return find.call(this.children, match);
+    };
+  }
+
+  function childFirst() {
+    return this.firstElementChild;
+  }
+
+  function selection_selectChild(match) {
+    return this.select(match == null ? childFirst
+        : childFind(typeof match === "function" ? match : childMatcher(match)));
+  }
+
+  var filter = Array.prototype.filter;
+
+  function children() {
+    return this.children;
+  }
+
+  function childrenFilter(match) {
+    return function() {
+      return filter.call(this.children, match);
+    };
+  }
+
+  function selection_selectChildren(match) {
+    return this.selectAll(match == null ? children
+        : childrenFilter(typeof match === "function" ? match : childMatcher(match)));
   }
 
   function selection_filter(match) {
@@ -138,8 +192,6 @@ var chart = (function (exports) {
     };
   }
 
-  var keyPrefix = "$"; // Protect against keys like “__proto__”.
-
   function bindIndex(parent, group, enter, update, exit, data) {
     var i = 0,
         node,
@@ -169,7 +221,7 @@ var chart = (function (exports) {
   function bindKey(parent, group, enter, update, exit, data, key) {
     var i,
         node,
-        nodeByKeyValue = {},
+        nodeByKeyValue = new Map,
         groupLength = group.length,
         dataLength = data.length,
         keyValues = new Array(groupLength),
@@ -179,11 +231,11 @@ var chart = (function (exports) {
     // If multiple nodes have the same key, the duplicates are added to exit.
     for (i = 0; i < groupLength; ++i) {
       if (node = group[i]) {
-        keyValues[i] = keyValue = keyPrefix + key.call(node, node.__data__, i, group);
-        if (keyValue in nodeByKeyValue) {
+        keyValues[i] = keyValue = key.call(node, node.__data__, i, group) + "";
+        if (nodeByKeyValue.has(keyValue)) {
           exit[i] = node;
         } else {
-          nodeByKeyValue[keyValue] = node;
+          nodeByKeyValue.set(keyValue, node);
         }
       }
     }
@@ -192,11 +244,11 @@ var chart = (function (exports) {
     // If there a node associated with this key, join and add it to update.
     // If there is not (or the key is a duplicate), add it to enter.
     for (i = 0; i < dataLength; ++i) {
-      keyValue = keyPrefix + key.call(parent, data[i], i, data);
-      if (node = nodeByKeyValue[keyValue]) {
+      keyValue = key.call(parent, data[i], i, data) + "";
+      if (node = nodeByKeyValue.get(keyValue)) {
         update[i] = node;
         node.__data__ = data[i];
-        nodeByKeyValue[keyValue] = null;
+        nodeByKeyValue.delete(keyValue);
       } else {
         enter[i] = new EnterNode(parent, data[i]);
       }
@@ -204,18 +256,18 @@ var chart = (function (exports) {
 
     // Add any remaining nodes that were not bound to data to exit.
     for (i = 0; i < groupLength; ++i) {
-      if ((node = group[i]) && (nodeByKeyValue[keyValues[i]] === node)) {
+      if ((node = group[i]) && (nodeByKeyValue.get(keyValues[i]) === node)) {
         exit[i] = node;
       }
     }
   }
 
+  function datum(node) {
+    return node.__data__;
+  }
+
   function selection_data(value, key) {
-    if (!value) {
-      data = new Array(this.size()), j = -1;
-      this.each(function(d) { data[++j] = d; });
-      return data;
-    }
+    if (!arguments.length) return Array.from(this, datum);
 
     var bind = key ? bindKey : bindIndex,
         parents = this._parents,
@@ -227,7 +279,7 @@ var chart = (function (exports) {
       var parent = parents[j],
           group = groups[j],
           groupLength = group.length,
-          data = value.call(parent, parent && parent.__data__, j, parents),
+          data = array(value.call(parent, parent && parent.__data__, j, parents)),
           dataLength = data.length,
           enterGroup = enter[j] = new Array(dataLength),
           updateGroup = update[j] = new Array(dataLength),
@@ -266,6 +318,7 @@ var chart = (function (exports) {
   }
 
   function selection_merge(selection) {
+    if (!(selection instanceof Selection)) throw new Error("invalid merge");
 
     for (var groups0 = this._groups, groups1 = selection._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
       for (var group0 = groups0[j], group1 = groups1[j], n = group0.length, merge = merges[j] = new Array(n), node, i = 0; i < n; ++i) {
@@ -327,9 +380,7 @@ var chart = (function (exports) {
   }
 
   function selection_nodes() {
-    var nodes = new Array(this.size()), i = -1;
-    this.each(function() { nodes[++i] = this; });
-    return nodes;
+    return Array.from(this);
   }
 
   function selection_node() {
@@ -345,8 +396,8 @@ var chart = (function (exports) {
   }
 
   function selection_size() {
-    var size = 0;
-    this.each(function() { ++size; });
+    let size = 0;
+    for (const node of this) ++size; // eslint-disable-line no-unused-vars
     return size;
   }
 
@@ -682,36 +733,9 @@ var chart = (function (exports) {
         : this.node().__data__;
   }
 
-  var filterEvents = {};
-
-  var event = null;
-
-  if (typeof document !== "undefined") {
-    var element = document.documentElement;
-    if (!("onmouseenter" in element)) {
-      filterEvents = {mouseenter: "mouseover", mouseleave: "mouseout"};
-    }
-  }
-
-  function filterContextListener(listener, index, group) {
-    listener = contextListener(listener, index, group);
+  function contextListener(listener) {
     return function(event) {
-      var related = event.relatedTarget;
-      if (!related || (related !== this && !(related.compareDocumentPosition(this) & 8))) {
-        listener.call(this, event);
-      }
-    };
-  }
-
-  function contextListener(listener, index, group) {
-    return function(event1) {
-      var event0 = event; // Events can be reentrant (e.g., focus).
-      event = event1;
-      try {
-        listener.call(this, this.__data__, index, group);
-      } finally {
-        event = event0;
-      }
+      listener.call(this, event, this.__data__);
     };
   }
 
@@ -729,7 +753,7 @@ var chart = (function (exports) {
       if (!on) return;
       for (var j = 0, i = -1, m = on.length, o; j < m; ++j) {
         if (o = on[j], (!typename.type || o.type === typename.type) && o.name === typename.name) {
-          this.removeEventListener(o.type, o.listener, o.capture);
+          this.removeEventListener(o.type, o.listener, o.options);
         } else {
           on[++i] = o;
         }
@@ -739,26 +763,25 @@ var chart = (function (exports) {
     };
   }
 
-  function onAdd(typename, value, capture) {
-    var wrap = filterEvents.hasOwnProperty(typename.type) ? filterContextListener : contextListener;
-    return function(d, i, group) {
-      var on = this.__on, o, listener = wrap(value, i, group);
+  function onAdd(typename, value, options) {
+    return function() {
+      var on = this.__on, o, listener = contextListener(value);
       if (on) for (var j = 0, m = on.length; j < m; ++j) {
         if ((o = on[j]).type === typename.type && o.name === typename.name) {
-          this.removeEventListener(o.type, o.listener, o.capture);
-          this.addEventListener(o.type, o.listener = listener, o.capture = capture);
+          this.removeEventListener(o.type, o.listener, o.options);
+          this.addEventListener(o.type, o.listener = listener, o.options = options);
           o.value = value;
           return;
         }
       }
-      this.addEventListener(typename.type, listener, capture);
-      o = {type: typename.type, name: typename.name, value: value, listener: listener, capture: capture};
+      this.addEventListener(typename.type, listener, options);
+      o = {type: typename.type, name: typename.name, value: value, listener: listener, options: options};
       if (!on) this.__on = [o];
       else on.push(o);
     };
   }
 
-  function selection_on(typename, value, capture) {
+  function selection_on(typename, value, options) {
     var typenames = parseTypenames(typename + ""), i, n = typenames.length, t;
 
     if (arguments.length < 2) {
@@ -774,20 +797,8 @@ var chart = (function (exports) {
     }
 
     on = value ? onAdd : onRemove;
-    if (capture == null) capture = false;
-    for (i = 0; i < n; ++i) this.each(on(typenames[i], value, capture));
+    for (i = 0; i < n; ++i) this.each(on(typenames[i], value, options));
     return this;
-  }
-
-  function customEvent(event1, listener, that, args) {
-    var event0 = event;
-    event1.sourceEvent = event;
-    event = event1;
-    try {
-      return listener.apply(that, args);
-    } finally {
-      event = event0;
-    }
   }
 
   function dispatchEvent(node, type, params) {
@@ -823,6 +834,14 @@ var chart = (function (exports) {
         : dispatchConstant)(type, params));
   }
 
+  function* selection_iterator() {
+    for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+      for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
+        if (node = group[i]) yield node;
+      }
+    }
+  }
+
   var root = [null];
 
   function Selection(groups, parents) {
@@ -834,16 +853,23 @@ var chart = (function (exports) {
     return new Selection([[document.documentElement]], root);
   }
 
+  function selection_selection() {
+    return this;
+  }
+
   Selection.prototype = selection.prototype = {
     constructor: Selection,
     select: selection_select,
     selectAll: selection_selectAll,
+    selectChild: selection_selectChild,
+    selectChildren: selection_selectChildren,
     filter: selection_filter,
     data: selection_data,
     enter: selection_enter,
     exit: selection_exit,
     join: selection_join,
     merge: selection_merge,
+    selection: selection_selection,
     order: selection_order,
     sort: selection_sort,
     call: selection_call,
@@ -866,7 +892,8 @@ var chart = (function (exports) {
     clone: selection_clone,
     datum: selection_datum,
     on: selection_on,
-    dispatch: selection_dispatch
+    dispatch: selection_dispatch,
+    [Symbol.iterator]: selection_iterator
   };
 
   function select(selector) {
@@ -875,84 +902,84 @@ var chart = (function (exports) {
         : new Selection([[selector]], root);
   }
 
-  function sourceEvent() {
-    var current = event, source;
-    while (source = current.sourceEvent) current = source;
-    return current;
+  function sourceEvent(event) {
+    let sourceEvent;
+    while (sourceEvent = event.sourceEvent) event = sourceEvent;
+    return event;
   }
 
-  function point(node, event) {
-    var svg = node.ownerSVGElement || node;
-
-    if (svg.createSVGPoint) {
-      var point = svg.createSVGPoint();
-      point.x = event.clientX, point.y = event.clientY;
-      point = point.matrixTransform(node.getScreenCTM().inverse());
-      return [point.x, point.y];
+  function pointer(event, node) {
+    event = sourceEvent(event);
+    if (node === undefined) node = event.currentTarget;
+    if (node) {
+      var svg = node.ownerSVGElement || node;
+      if (svg.createSVGPoint) {
+        var point = svg.createSVGPoint();
+        point.x = event.clientX, point.y = event.clientY;
+        point = point.matrixTransform(node.getScreenCTM().inverse());
+        return [point.x, point.y];
+      }
+      if (node.getBoundingClientRect) {
+        var rect = node.getBoundingClientRect();
+        return [event.clientX - rect.left - node.clientLeft, event.clientY - rect.top - node.clientTop];
+      }
     }
-
-    var rect = node.getBoundingClientRect();
-    return [event.clientX - rect.left - node.clientLeft, event.clientY - rect.top - node.clientTop];
-  }
-
-  function mouse(node) {
-    var event = sourceEvent();
-    if (event.changedTouches) event = event.changedTouches[0];
-    return point(node, event);
+    return [event.pageX, event.pageY];
   }
 
   function selectAll(selector) {
     return typeof selector === "string"
         ? new Selection([document.querySelectorAll(selector)], [document.documentElement])
-        : new Selection([selector == null ? [] : selector], root);
-  }
-
-  function touch(node, touches, identifier) {
-    if (arguments.length < 3) identifier = touches, touches = sourceEvent().changedTouches;
-
-    for (var i = 0, n = touches ? touches.length : 0, touch; i < n; ++i) {
-      if ((touch = touches[i]).identifier === identifier) {
-        return point(node, touch);
-      }
-    }
-
-    return null;
+        : new Selection([selector == null ? [] : array(selector)], root);
   }
 
   function ascending$1(a, b) {
     return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
   }
 
-  function bisector(compare) {
-    if (compare.length === 1) compare = ascendingComparator(compare);
-    return {
-      left: function(a, x, lo, hi) {
-        if (lo == null) lo = 0;
-        if (hi == null) hi = a.length;
-        while (lo < hi) {
-          var mid = lo + hi >>> 1;
-          if (compare(a[mid], x) < 0) lo = mid + 1;
-          else hi = mid;
-        }
-        return lo;
-      },
-      right: function(a, x, lo, hi) {
-        if (lo == null) lo = 0;
-        if (hi == null) hi = a.length;
-        while (lo < hi) {
-          var mid = lo + hi >>> 1;
-          if (compare(a[mid], x) > 0) hi = mid;
-          else lo = mid + 1;
-        }
-        return lo;
+  function bisector(f) {
+    let delta = f;
+    let compare = f;
+
+    if (f.length === 1) {
+      delta = (d, x) => f(d) - x;
+      compare = ascendingComparator(f);
+    }
+
+    function left(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (compare(a[mid], x) < 0) lo = mid + 1;
+        else hi = mid;
       }
-    };
+      return lo;
+    }
+
+    function right(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (compare(a[mid], x) > 0) hi = mid;
+        else lo = mid + 1;
+      }
+      return lo;
+    }
+
+    function center(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      const i = left(a, x, lo, hi);
+      return i > lo && delta(a[i - 1], x) > -delta(a[i], x) ? i - 1 : i;
+    }
+
+    return {left, center, right};
   }
 
   function ascendingComparator(f) {
-    return function(d, x) {
-      return ascending$1(f(d), x);
-    };
+    return (d, x) => ascending$1(f(d), x);
   }
 
   var ascendingBisect = bisector(ascending$1);
@@ -980,10 +1007,11 @@ var chart = (function (exports) {
       ticks = new Array(n = Math.ceil(stop - start + 1));
       while (++i < n) ticks[i] = (start + i) * step;
     } else {
-      start = Math.floor(start * step);
-      stop = Math.ceil(stop * step);
-      ticks = new Array(n = Math.ceil(start - stop + 1));
-      while (++i < n) ticks[i] = (start - i) / step;
+      step = -step;
+      start = Math.ceil(start * step);
+      stop = Math.floor(stop * step);
+      ticks = new Array(n = Math.ceil(stop - start + 1));
+      while (++i < n) ticks[i] = (start + i) / step;
     }
 
     if (reverse) ticks.reverse();
@@ -1400,11 +1428,7 @@ var chart = (function (exports) {
         : m1) * 255;
   }
 
-  function constant$1(x) {
-    return function() {
-      return x;
-    };
-  }
+  var constant$1 = x => () => x;
 
   function linear(a, d) {
     return function(t) {
@@ -1730,10 +1754,16 @@ var chart = (function (exports) {
     return transformer()(identity, identity);
   }
 
+  function formatDecimal(x) {
+    return Math.abs(x = Math.round(x)) >= 1e21
+        ? x.toLocaleString("en").replace(/,/g, "")
+        : x.toString(10);
+  }
+
   // Computes the decimal coefficient and exponent of the specified number x with
   // significant digits p, where x is positive and p is in [1, 21] or undefined.
-  // For example, formatDecimal(1.23) returns ["123", 0].
-  function formatDecimal(x, p) {
+  // For example, formatDecimalParts(1.23) returns ["123", 0].
+  function formatDecimalParts(x, p) {
     if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
     var i, coefficient = x.slice(0, i);
 
@@ -1746,7 +1776,7 @@ var chart = (function (exports) {
   }
 
   function exponent(x) {
-    return x = formatDecimal(Math.abs(x)), x ? x[1] : NaN;
+    return x = formatDecimalParts(Math.abs(x)), x ? x[1] : NaN;
   }
 
   function formatGroup(grouping, thousands) {
@@ -1839,7 +1869,7 @@ var chart = (function (exports) {
   var prefixExponent;
 
   function formatPrefixAuto(x, p) {
-    var d = formatDecimal(x, p);
+    var d = formatDecimalParts(x, p);
     if (!d) return x + "";
     var coefficient = d[0],
         exponent = d[1],
@@ -1848,11 +1878,11 @@ var chart = (function (exports) {
     return i === n ? coefficient
         : i > n ? coefficient + new Array(i - n + 1).join("0")
         : i > 0 ? coefficient.slice(0, i) + "." + coefficient.slice(i)
-        : "0." + new Array(1 - i).join("0") + formatDecimal(x, Math.max(0, p + i - 1))[0]; // less than 1y!
+        : "0." + new Array(1 - i).join("0") + formatDecimalParts(x, Math.max(0, p + i - 1))[0]; // less than 1y!
   }
 
   function formatRounded(x, p) {
-    var d = formatDecimal(x, p);
+    var d = formatDecimalParts(x, p);
     if (!d) return x + "";
     var coefficient = d[0],
         exponent = d[1];
@@ -1862,19 +1892,19 @@ var chart = (function (exports) {
   }
 
   var formatTypes = {
-    "%": function(x, p) { return (x * 100).toFixed(p); },
-    "b": function(x) { return Math.round(x).toString(2); },
-    "c": function(x) { return x + ""; },
-    "d": function(x) { return Math.round(x).toString(10); },
-    "e": function(x, p) { return x.toExponential(p); },
-    "f": function(x, p) { return x.toFixed(p); },
-    "g": function(x, p) { return x.toPrecision(p); },
-    "o": function(x) { return Math.round(x).toString(8); },
-    "p": function(x, p) { return formatRounded(x * 100, p); },
+    "%": (x, p) => (x * 100).toFixed(p),
+    "b": (x) => Math.round(x).toString(2),
+    "c": (x) => x + "",
+    "d": formatDecimal,
+    "e": (x, p) => x.toExponential(p),
+    "f": (x, p) => x.toFixed(p),
+    "g": (x, p) => x.toPrecision(p),
+    "o": (x) => Math.round(x).toString(8),
+    "p": (x, p) => formatRounded(x * 100, p),
     "r": formatRounded,
     "s": formatPrefixAuto,
-    "X": function(x) { return Math.round(x).toString(16).toUpperCase(); },
-    "x": function(x) { return Math.round(x).toString(16); }
+    "X": (x) => Math.round(x).toString(16).toUpperCase(),
+    "x": (x) => Math.round(x).toString(16)
   };
 
   function identity$1(x) {
@@ -1891,7 +1921,7 @@ var chart = (function (exports) {
         decimal = locale.decimal === undefined ? "." : locale.decimal + "",
         numerals = locale.numerals === undefined ? identity$1 : formatNumerals(map.call(locale.numerals, String)),
         percent = locale.percent === undefined ? "%" : locale.percent + "",
-        minus = locale.minus === undefined ? "-" : locale.minus + "",
+        minus = locale.minus === undefined ? "−" : locale.minus + "",
         nan = locale.nan === undefined ? "NaN" : locale.nan + "";
 
     function newFormat(specifier) {
@@ -2026,11 +2056,9 @@ var chart = (function (exports) {
   var formatPrefix;
 
   defaultLocale({
-    decimal: ".",
     thousands: ",",
     grouping: [3],
-    currency: ["$", ""],
-    minus: "-"
+    currency: ["$", ""]
   });
 
   function defaultLocale(definition) {
@@ -2096,38 +2124,36 @@ var chart = (function (exports) {
     scale.nice = function(count) {
       if (count == null) count = 10;
 
-      var d = domain(),
-          i0 = 0,
-          i1 = d.length - 1,
-          start = d[i0],
-          stop = d[i1],
-          step;
+      var d = domain();
+      var i0 = 0;
+      var i1 = d.length - 1;
+      var start = d[i0];
+      var stop = d[i1];
+      var prestep;
+      var step;
+      var maxIter = 10;
 
       if (stop < start) {
         step = start, start = stop, stop = step;
         step = i0, i0 = i1, i1 = step;
       }
-
-      step = tickIncrement(start, stop, count);
-
-      if (step > 0) {
-        start = Math.floor(start / step) * step;
-        stop = Math.ceil(stop / step) * step;
+      
+      while (maxIter-- > 0) {
         step = tickIncrement(start, stop, count);
-      } else if (step < 0) {
-        start = Math.ceil(start * step) / step;
-        stop = Math.floor(stop * step) / step;
-        step = tickIncrement(start, stop, count);
-      }
-
-      if (step > 0) {
-        d[i0] = Math.floor(start / step) * step;
-        d[i1] = Math.ceil(stop / step) * step;
-        domain(d);
-      } else if (step < 0) {
-        d[i0] = Math.ceil(start * step) / step;
-        d[i1] = Math.floor(stop * step) / step;
-        domain(d);
+        if (step === prestep) {
+          d[i0] = start;
+          d[i1] = stop;
+          return domain(d);
+        } else if (step > 0) {
+          start = Math.floor(start / step) * step;
+          stop = Math.ceil(stop / step) * step;
+        } else if (step < 0) {
+          start = Math.ceil(start * step) / step;
+          stop = Math.floor(stop * step) / step;
+        } else {
+          break;
+        }
+        prestep = step;
       }
 
       return scale;
@@ -2148,7 +2174,7 @@ var chart = (function (exports) {
     return linearish(scale);
   }
 
-  var pi = Math.PI,
+  const pi = Math.PI,
       tau = 2 * pi,
       epsilon = 1e-6,
       tauEpsilon = tau - epsilon;
@@ -2283,6 +2309,8 @@ var chart = (function (exports) {
     };
   }
 
+  var slice = Array.prototype.slice;
+
   function x(p) {
     return p[0];
   }
@@ -2290,8 +2318,6 @@ var chart = (function (exports) {
   function y(p) {
     return p[1];
   }
-
-  var slice = Array.prototype.slice;
 
   function linkSource(d) {
     return d.source;
@@ -2356,7 +2382,7 @@ var chart = (function (exports) {
     return link(curveVertical);
   }
 
-  var noop = {value: function() {}};
+  var noop = {value: () => {}};
 
   function dispatch() {
     for (var i = 0, n = arguments.length, _ = {}, t; i < n; ++i) {
@@ -2439,11 +2465,11 @@ var chart = (function (exports) {
     return type;
   }
 
-  function nopropagation() {
+  function nopropagation(event) {
     event.stopImmediatePropagation();
   }
 
-  function noevent() {
+  function noevent(event) {
     event.preventDefault();
     event.stopImmediatePropagation();
   }
@@ -2474,23 +2500,30 @@ var chart = (function (exports) {
     }
   }
 
-  function constant$4(x) {
-    return function() {
-      return x;
-    };
-  }
+  var constant$4 = x => () => x;
 
-  function DragEvent(target, type, subject, id, active, x, y, dx, dy, dispatch) {
-    this.target = target;
-    this.type = type;
-    this.subject = subject;
-    this.identifier = id;
-    this.active = active;
-    this.x = x;
-    this.y = y;
-    this.dx = dx;
-    this.dy = dy;
-    this._ = dispatch;
+  function DragEvent(type, {
+    sourceEvent,
+    subject,
+    target,
+    identifier,
+    active,
+    x, y, dx, dy,
+    dispatch
+  }) {
+    Object.defineProperties(this, {
+      type: {value: type, enumerable: true, configurable: true},
+      sourceEvent: {value: sourceEvent, enumerable: true, configurable: true},
+      subject: {value: subject, enumerable: true, configurable: true},
+      target: {value: target, enumerable: true, configurable: true},
+      identifier: {value: identifier, enumerable: true, configurable: true},
+      active: {value: active, enumerable: true, configurable: true},
+      x: {value: x, enumerable: true, configurable: true},
+      y: {value: y, enumerable: true, configurable: true},
+      dx: {value: dx, enumerable: true, configurable: true},
+      dy: {value: dy, enumerable: true, configurable: true},
+      _: {value: dispatch}
+    });
   }
 
   DragEvent.prototype.on = function() {
@@ -2499,7 +2532,7 @@ var chart = (function (exports) {
   };
 
   // Ignore right-click, since that should open the context menu.
-  function defaultFilter() {
+  function defaultFilter(event) {
     return !event.ctrlKey && !event.button;
   }
 
@@ -2507,7 +2540,7 @@ var chart = (function (exports) {
     return this.parentNode;
   }
 
-  function defaultSubject(d) {
+  function defaultSubject(event, d) {
     return d == null ? {x: event.x, y: event.y} : d;
   }
 
@@ -2540,62 +2573,62 @@ var chart = (function (exports) {
           .style("-webkit-tap-highlight-color", "rgba(0,0,0,0)");
     }
 
-    function mousedowned() {
-      if (touchending || !filter.apply(this, arguments)) return;
-      var gesture = beforestart("mouse", container.apply(this, arguments), mouse, this, arguments);
+    function mousedowned(event, d) {
+      if (touchending || !filter.call(this, event, d)) return;
+      var gesture = beforestart(this, container.call(this, event, d), event, d, "mouse");
       if (!gesture) return;
       select(event.view).on("mousemove.drag", mousemoved, true).on("mouseup.drag", mouseupped, true);
       nodrag(event.view);
-      nopropagation();
+      nopropagation(event);
       mousemoving = false;
       mousedownx = event.clientX;
       mousedowny = event.clientY;
-      gesture("start");
+      gesture("start", event);
     }
 
-    function mousemoved() {
-      noevent();
+    function mousemoved(event) {
+      noevent(event);
       if (!mousemoving) {
         var dx = event.clientX - mousedownx, dy = event.clientY - mousedowny;
         mousemoving = dx * dx + dy * dy > clickDistance2;
       }
-      gestures.mouse("drag");
+      gestures.mouse("drag", event);
     }
 
-    function mouseupped() {
+    function mouseupped(event) {
       select(event.view).on("mousemove.drag mouseup.drag", null);
       yesdrag(event.view, mousemoving);
-      noevent();
-      gestures.mouse("end");
+      noevent(event);
+      gestures.mouse("end", event);
     }
 
-    function touchstarted() {
-      if (!filter.apply(this, arguments)) return;
+    function touchstarted(event, d) {
+      if (!filter.call(this, event, d)) return;
       var touches = event.changedTouches,
-          c = container.apply(this, arguments),
+          c = container.call(this, event, d),
           n = touches.length, i, gesture;
 
       for (i = 0; i < n; ++i) {
-        if (gesture = beforestart(touches[i].identifier, c, touch, this, arguments)) {
-          nopropagation();
-          gesture("start");
+        if (gesture = beforestart(this, c, event, d, touches[i].identifier, touches[i])) {
+          nopropagation(event);
+          gesture("start", event, touches[i]);
         }
       }
     }
 
-    function touchmoved() {
+    function touchmoved(event) {
       var touches = event.changedTouches,
           n = touches.length, i, gesture;
 
       for (i = 0; i < n; ++i) {
         if (gesture = gestures[touches[i].identifier]) {
-          noevent();
-          gesture("drag");
+          noevent(event);
+          gesture("drag", event, touches[i]);
         }
       }
     }
 
-    function touchended() {
+    function touchended(event) {
       var touches = event.changedTouches,
           n = touches.length, i, gesture;
 
@@ -2603,31 +2636,56 @@ var chart = (function (exports) {
       touchending = setTimeout(function() { touchending = null; }, 500); // Ghost clicks are delayed!
       for (i = 0; i < n; ++i) {
         if (gesture = gestures[touches[i].identifier]) {
-          nopropagation();
-          gesture("end");
+          nopropagation(event);
+          gesture("end", event, touches[i]);
         }
       }
     }
 
-    function beforestart(id, container, point, that, args) {
-      var p = point(container, id), s, dx, dy,
-          sublisteners = listeners.copy();
+    function beforestart(that, container, event, d, identifier, touch) {
+      var dispatch = listeners.copy(),
+          p = pointer(touch || event, container), dx, dy,
+          s;
 
-      if (!customEvent(new DragEvent(drag, "beforestart", s, id, active, p[0], p[1], 0, 0, sublisteners), function() {
-        if ((event.subject = s = subject.apply(that, args)) == null) return false;
-        dx = s.x - p[0] || 0;
-        dy = s.y - p[1] || 0;
-        return true;
-      })) return;
+      if ((s = subject.call(that, new DragEvent("beforestart", {
+          sourceEvent: event,
+          target: drag,
+          identifier,
+          active,
+          x: p[0],
+          y: p[1],
+          dx: 0,
+          dy: 0,
+          dispatch
+        }), d)) == null) return;
 
-      return function gesture(type) {
+      dx = s.x - p[0] || 0;
+      dy = s.y - p[1] || 0;
+
+      return function gesture(type, event, touch) {
         var p0 = p, n;
         switch (type) {
-          case "start": gestures[id] = gesture, n = active++; break;
-          case "end": delete gestures[id], --active; // nobreak
-          case "drag": p = point(container, id), n = active; break;
+          case "start": gestures[identifier] = gesture, n = active++; break;
+          case "end": delete gestures[identifier], --active; // nobreak
+          case "drag": p = pointer(touch || event, container), n = active; break;
         }
-        customEvent(new DragEvent(drag, type, s, id, n, p[0] + dx, p[1] + dy, p[0] - p0[0], p[1] - p0[1], sublisteners), sublisteners.apply, sublisteners, [type, that, args]);
+        dispatch.call(
+          type,
+          that,
+          new DragEvent(type, {
+            sourceEvent: event,
+            subject: s,
+            target: drag,
+            identifier,
+            active: n,
+            x: p[0] + dx,
+            y: p[1] + dy,
+            dx: p[0] - p0[0],
+            dy: p[1] - p0[1],
+            dispatch
+          }),
+          d
+        );
       };
     }
 
@@ -2658,6 +2716,13 @@ var chart = (function (exports) {
 
     return drag;
   }
+
+  /**
+   * Returns the x,y pair measurement
+   * @param referenceElement - element to position targetElement by
+   * @param targetElement - element that will receive position values
+   * @param padding - (optional) additional padding to account for
+   */
 
   var resizeObservers = [];
 
@@ -3422,7 +3487,7 @@ var chart = (function (exports) {
               .append("g")
               .attr("id", function (d) { return _this._id + "_" + d.id; })
               .attr("class", "link" + fade)
-              .on("click", function (d) { return _this._linkClickHandler(event.target); });
+              .on("click", function (event) { return _this._linkClickHandler(event); });
           this.links.forEach(function (lk) {
               lk.dom = document.getElementById(_this._id + "_" + lk.id);
           });
@@ -3463,7 +3528,7 @@ var chart = (function (exports) {
               .on("start", dragstart)
               .on("drag", dragmove)
               .on("end", dragend))
-              .on("click", function () { return _this._nodeClickHandler(event.currentTarget); });
+              .on("click", function (event) { return _this._nodeClickHandler(event); });
           this.nodes.forEach(function (node) {
               node.dom = document.getElementById(_this._id + "_" + node.id);
           });
@@ -3487,7 +3552,7 @@ var chart = (function (exports) {
               .attr("transform", function (d) { return "translate(" + d.x + " " + d.y + ")"; });
           nodes.append("title")
               .text(function (d) { return d.name + " - " + _this._fp.format(d.value); });
-          function dragstart(d) {
+          function dragstart(event, d) {
               if (!d.__x) {
                   d.__x = event.x;
               }
@@ -3501,7 +3566,7 @@ var chart = (function (exports) {
                   d.__y0 = d.y;
               }
           }
-          function dragmove(d) {
+          function dragmove(event, d) {
               select(this)
                   .attr("transform", function (d) {
                   var dx = event.x - d.__x;
@@ -3526,7 +3591,7 @@ var chart = (function (exports) {
               selectAll("path.link")
                   .attr("d", function (d) { return self._linkGenerator(d); });
           }
-          function dragend(d) {
+          function dragend(event, d) {
               delete d.__x;
               delete d.__y;
               delete d.__x0;
@@ -3547,7 +3612,7 @@ var chart = (function (exports) {
                           .attr("cy", node.h / 2)
                           .attr("filter", "url(#blur)")
                           .attr("r", 0)
-                          .on("click", function () { return _this._playbackClickHandler(event.currentTarget); });
+                          .on("click", function (event) { return _this._playbackClickHandler(event); });
                       c.append("title").text("View notes about this flow stage");
                       c.attr("r", 15);
                   }
@@ -3585,13 +3650,15 @@ var chart = (function (exports) {
               _this.links[i].nodeOut.linksIn.push(_this.links[i]);
           });
       };
-      Sankey.prototype._linkClickHandler = function (el) {
+      Sankey.prototype._linkClickHandler = function (event) {
+          var el = event.target;
           event.stopPropagation();
           this.clearSelection();
           window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
           select(el).classed("selected", true);
       };
-      Sankey.prototype._nodeClickHandler = function (el) {
+      Sankey.prototype._nodeClickHandler = function (event) {
+          var el = event.target;
           event.stopPropagation();
           this.clearSelection();
           var activeNode = select(el);
@@ -3604,9 +3671,10 @@ var chart = (function (exports) {
               select(link.dom).select("path").classed("selected", true);
           });
       };
-      Sankey.prototype._playbackClickHandler = function (el) {
+      Sankey.prototype._playbackClickHandler = function (event) {
           var _this = this;
           event.stopPropagation();
+          var el = event.target;
           this.clearSelection();
           var button = select(el);
           button

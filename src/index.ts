@@ -1,4 +1,4 @@
-import { event, select, selectAll } from "d3-selection";
+import { pointer, select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
@@ -286,7 +286,7 @@ export class Sankey {
       .append("g")
         .attr("id", d => `${this._id}_${d.id}`)
         .attr("class", "link" + fade)
-        .on("click", (d: TLink) => this._linkClickHandler(event.target));
+        .on("click", event => this._linkClickHandler(event));
 
     this.links.forEach((lk: TLink) => {
       lk.dom = document.getElementById(`${this._id}_${lk.id}`) as any;
@@ -335,7 +335,7 @@ export class Sankey {
             .on("start", dragstart)
             .on("drag", dragmove as any)
             .on("end", dragend))
-        .on("click", () => this._nodeClickHandler(event.currentTarget));
+        .on("click", event => this._nodeClickHandler(event));
 
     this.nodes.forEach((node: TNode) => {
       node.dom = document.getElementById(`${this._id}_${node.id}`) as any;
@@ -366,14 +366,14 @@ export class Sankey {
     nodes.append("title")
       .text((d: any) => `${d.name} - ${this._fp.format(d.value)}`);
 
-    function dragstart(d: any) {
+    function dragstart(event: any, d: any) {
       if (!d.__x) { d.__x = event.x; }
       if (!d.__y) { d.__y = event.y; }
       if (!d.__x0) { d.__x0 = d.x; }
       if (!d.__y0) { d.__y0 = d.y; }
     }
 
-    function dragmove(this: SVGGElement, d: any) {
+    function dragmove(this: SVGGElement, event: any, d: any) {
       select(this)
         .attr("transform", function (d: any) {
           const dx = event.x - d.__x;
@@ -403,7 +403,7 @@ export class Sankey {
         .attr("d", d => self._linkGenerator(d));
     }
 
-    function dragend(d: any) {
+    function dragend(event: any, d: any) {
       delete d.__x;
       delete d.__y;
       delete d.__x0;
@@ -425,7 +425,7 @@ export class Sankey {
             .attr("cy", node.h / 2)
             .attr("filter", "url(#blur)")
             .attr("r", 0)
-            .on("click", () => this._playbackClickHandler(event.currentTarget));
+            .on("click", event => this._playbackClickHandler(event));
           c.append("title").text("View notes about this flow stage");
           c.attr("r", 15);
         }
@@ -465,14 +465,16 @@ export class Sankey {
     });
   }
 
-  private _linkClickHandler(el: Element): void {
+  private _linkClickHandler(event: any): void {
+    const el = event.target;
     event.stopPropagation();
     this.clearSelection();
     window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
     select(el).classed("selected", true);
   }
 
-  private _nodeClickHandler(el: Element): void {
+  private _nodeClickHandler(event: any): void {
+    const el = event.target;
     event.stopPropagation();
     this.clearSelection();
     const activeNode = select(el);
@@ -487,8 +489,10 @@ export class Sankey {
     });
   }
 
-  private _playbackClickHandler(el: Element): void {
+  private _playbackClickHandler(event: any): void {
     event.stopPropagation();
+    const el = event.target; 
+    
     this.clearSelection();
     const button = select(el);
     button
