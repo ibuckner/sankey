@@ -1,4 +1,4 @@
-import { TMargin } from "@buckneri/spline";
+import { Basechart, TMargin } from "@buckneri/spline";
 export declare type TLink = {
     dom: SVGElement;
     fill: string;
@@ -41,11 +41,8 @@ export declare type TSankeyOptions = {
     padding: number;
     playback: boolean;
 };
-export declare class Sankey {
-    container: HTMLElement;
-    h: number;
+export declare class Sankey extends Basechart {
     links: TLink[];
-    margin: TMargin;
     nodeMoveX: boolean;
     nodeMoveY: boolean;
     nodes: TNode[];
@@ -53,31 +50,19 @@ export declare class Sankey {
     orient: TOrientation;
     padding: number;
     playback: boolean;
-    rh: number;
-    rw: number;
-    w: number;
     private _extent;
     private _fp;
-    private _id;
     private _linkGenerator;
     private _scale;
     private _layerGap;
     private _totalLayers;
     constructor(options: TSankeyOptions);
     /**
-     * Clears selection from Sankey
-     */
-    clearSelection(): Sankey;
-    /**
      * Saves data into Sankey
      * @param nodes - Sankey nodes
      * @param links - Sankey links
      */
     data(nodes: TNode[], links: TLink[]): Sankey;
-    /**
-     * Removes this chart from the DOM
-     */
-    destroy(): Sankey;
     /**
      * draws the Sankey
      */

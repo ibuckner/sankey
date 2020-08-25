@@ -1,20 +1,18 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "composite": true,
     "declaration": true,
     "declarationDir": "dist",
     "declarationMap": false,
     "esModuleInterop": true,
     "experimentalDecorators": true,
-    "incremental": true,
     "inlineSourceMap": true,
-    "lib": ["esnext.array", "esnext", "es2017", "dom", "es5"],
+    "lib": ["esnext", "dom"],
     "module": "es2015",
     "moduleResolution": "node",
     "removeComments": false,
     "strict": true,
-    "target": "es5",
+    "target": "es6",
     "typeRoots": ["./node_modules/@types"]
   },
   "exclude": [

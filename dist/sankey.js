@@ -2714,12 +2714,974 @@ function drag() {
   return drag;
 }
 
-/**
- * Returns the x,y pair measurement
- * @param referenceElement - element to position targetElement by
- * @param targetElement - element that will receive position values
- * @param padding - (optional) additional padding to account for
- */
+var xhtml$1 = "http://www.w3.org/1999/xhtml";
+
+var namespaces$1 = {
+  svg: "http://www.w3.org/2000/svg",
+  xhtml: xhtml$1,
+  xlink: "http://www.w3.org/1999/xlink",
+  xml: "http://www.w3.org/XML/1998/namespace",
+  xmlns: "http://www.w3.org/2000/xmlns/"
+};
+
+function namespace$1(name) {
+  var prefix = name += "", i = prefix.indexOf(":");
+  if (i >= 0 && (prefix = name.slice(0, i)) !== "xmlns") name = name.slice(i + 1);
+  return namespaces$1.hasOwnProperty(prefix) ? {space: namespaces$1[prefix], local: name} : name; // eslint-disable-line no-prototype-builtins
+}
+
+function creatorInherit$1(name) {
+  return function() {
+    var document = this.ownerDocument,
+        uri = this.namespaceURI;
+    return uri === xhtml$1 && document.documentElement.namespaceURI === xhtml$1
+        ? document.createElement(name)
+        : document.createElementNS(uri, name);
+  };
+}
+
+function creatorFixed$1(fullname) {
+  return function() {
+    return this.ownerDocument.createElementNS(fullname.space, fullname.local);
+  };
+}
+
+function creator$1(name) {
+  var fullname = namespace$1(name);
+  return (fullname.local
+      ? creatorFixed$1
+      : creatorInherit$1)(fullname);
+}
+
+function none$1() {}
+
+function selector$1(selector) {
+  return selector == null ? none$1 : function() {
+    return this.querySelector(selector);
+  };
+}
+
+function selection_select$1(select) {
+  if (typeof select !== "function") select = selector$1(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = new Array(n), node, subnode, i = 0; i < n; ++i) {
+      if ((node = group[i]) && (subnode = select.call(node, node.__data__, i, group))) {
+        if ("__data__" in node) subnode.__data__ = node.__data__;
+        subgroup[i] = subnode;
+      }
+    }
+  }
+
+  return new Selection$1(subgroups, this._parents);
+}
+
+function array$1(x) {
+  return typeof x === "object" && "length" in x
+    ? x // Array, TypedArray, NodeList, array-like
+    : Array.from(x); // Map, Set, iterable, string, or anything else
+}
+
+function empty$1() {
+  return [];
+}
+
+function selectorAll$1(selector) {
+  return selector == null ? empty$1 : function() {
+    return this.querySelectorAll(selector);
+  };
+}
+
+function arrayAll$1(select) {
+  return function() {
+    var group = select.apply(this, arguments);
+    return group == null ? [] : array$1(group);
+  };
+}
+
+function selection_selectAll$1(select) {
+  if (typeof select === "function") select = arrayAll$1(select);
+  else select = selectorAll$1(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = [], parents = [], j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        subgroups.push(select.call(node, node.__data__, i, group));
+        parents.push(node);
+      }
+    }
+  }
+
+  return new Selection$1(subgroups, parents);
+}
+
+function matcher$1(selector) {
+  return function() {
+    return this.matches(selector);
+  };
+}
+
+function childMatcher$1(selector) {
+  return function(node) {
+    return node.matches(selector);
+  };
+}
+
+var find$1 = Array.prototype.find;
+
+function childFind$1(match) {
+  return function() {
+    return find$1.call(this.children, match);
+  };
+}
+
+function childFirst$1() {
+  return this.firstElementChild;
+}
+
+function selection_selectChild$1(match) {
+  return this.select(match == null ? childFirst$1
+      : childFind$1(typeof match === "function" ? match : childMatcher$1(match)));
+}
+
+var filter$1 = Array.prototype.filter;
+
+function children$1() {
+  return this.children;
+}
+
+function childrenFilter$1(match) {
+  return function() {
+    return filter$1.call(this.children, match);
+  };
+}
+
+function selection_selectChildren$1(match) {
+  return this.selectAll(match == null ? children$1
+      : childrenFilter$1(typeof match === "function" ? match : childMatcher$1(match)));
+}
+
+function selection_filter$1(match) {
+  if (typeof match !== "function") match = matcher$1(match);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
+      if ((node = group[i]) && match.call(node, node.__data__, i, group)) {
+        subgroup.push(node);
+      }
+    }
+  }
+
+  return new Selection$1(subgroups, this._parents);
+}
+
+function sparse$1(update) {
+  return new Array(update.length);
+}
+
+function selection_enter$1() {
+  return new Selection$1(this._enter || this._groups.map(sparse$1), this._parents);
+}
+
+function EnterNode$1(parent, datum) {
+  this.ownerDocument = parent.ownerDocument;
+  this.namespaceURI = parent.namespaceURI;
+  this._next = null;
+  this._parent = parent;
+  this.__data__ = datum;
+}
+
+EnterNode$1.prototype = {
+  constructor: EnterNode$1,
+  appendChild: function(child) { return this._parent.insertBefore(child, this._next); },
+  insertBefore: function(child, next) { return this._parent.insertBefore(child, next); },
+  querySelector: function(selector) { return this._parent.querySelector(selector); },
+  querySelectorAll: function(selector) { return this._parent.querySelectorAll(selector); }
+};
+
+function constant$5(x) {
+  return function() {
+    return x;
+  };
+}
+
+function bindIndex$1(parent, group, enter, update, exit, data) {
+  var i = 0,
+      node,
+      groupLength = group.length,
+      dataLength = data.length;
+
+  // Put any non-null nodes that fit into update.
+  // Put any null nodes into enter.
+  // Put any remaining data into enter.
+  for (; i < dataLength; ++i) {
+    if (node = group[i]) {
+      node.__data__ = data[i];
+      update[i] = node;
+    } else {
+      enter[i] = new EnterNode$1(parent, data[i]);
+    }
+  }
+
+  // Put any non-null nodes that don’t fit into exit.
+  for (; i < groupLength; ++i) {
+    if (node = group[i]) {
+      exit[i] = node;
+    }
+  }
+}
+
+function bindKey$1(parent, group, enter, update, exit, data, key) {
+  var i,
+      node,
+      nodeByKeyValue = new Map,
+      groupLength = group.length,
+      dataLength = data.length,
+      keyValues = new Array(groupLength),
+      keyValue;
+
+  // Compute the key for each node.
+  // If multiple nodes have the same key, the duplicates are added to exit.
+  for (i = 0; i < groupLength; ++i) {
+    if (node = group[i]) {
+      keyValues[i] = keyValue = key.call(node, node.__data__, i, group) + "";
+      if (nodeByKeyValue.has(keyValue)) {
+        exit[i] = node;
+      } else {
+        nodeByKeyValue.set(keyValue, node);
+      }
+    }
+  }
+
+  // Compute the key for each datum.
+  // If there a node associated with this key, join and add it to update.
+  // If there is not (or the key is a duplicate), add it to enter.
+  for (i = 0; i < dataLength; ++i) {
+    keyValue = key.call(parent, data[i], i, data) + "";
+    if (node = nodeByKeyValue.get(keyValue)) {
+      update[i] = node;
+      node.__data__ = data[i];
+      nodeByKeyValue.delete(keyValue);
+    } else {
+      enter[i] = new EnterNode$1(parent, data[i]);
+    }
+  }
+
+  // Add any remaining nodes that were not bound to data to exit.
+  for (i = 0; i < groupLength; ++i) {
+    if ((node = group[i]) && (nodeByKeyValue.get(keyValues[i]) === node)) {
+      exit[i] = node;
+    }
+  }
+}
+
+function datum$1(node) {
+  return node.__data__;
+}
+
+function selection_data$1(value, key) {
+  if (!arguments.length) return Array.from(this, datum$1);
+
+  var bind = key ? bindKey$1 : bindIndex$1,
+      parents = this._parents,
+      groups = this._groups;
+
+  if (typeof value !== "function") value = constant$5(value);
+
+  for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
+    var parent = parents[j],
+        group = groups[j],
+        groupLength = group.length,
+        data = array$1(value.call(parent, parent && parent.__data__, j, parents)),
+        dataLength = data.length,
+        enterGroup = enter[j] = new Array(dataLength),
+        updateGroup = update[j] = new Array(dataLength),
+        exitGroup = exit[j] = new Array(groupLength);
+
+    bind(parent, group, enterGroup, updateGroup, exitGroup, data, key);
+
+    // Now connect the enter nodes to their following update node, such that
+    // appendChild can insert the materialized enter node before this node,
+    // rather than at the end of the parent node.
+    for (var i0 = 0, i1 = 0, previous, next; i0 < dataLength; ++i0) {
+      if (previous = enterGroup[i0]) {
+        if (i0 >= i1) i1 = i0 + 1;
+        while (!(next = updateGroup[i1]) && ++i1 < dataLength);
+        previous._next = next || null;
+      }
+    }
+  }
+
+  update = new Selection$1(update, parents);
+  update._enter = enter;
+  update._exit = exit;
+  return update;
+}
+
+function selection_exit$1() {
+  return new Selection$1(this._exit || this._groups.map(sparse$1), this._parents);
+}
+
+function selection_join$1(onenter, onupdate, onexit) {
+  var enter = this.enter(), update = this, exit = this.exit();
+  enter = typeof onenter === "function" ? onenter(enter) : enter.append(onenter + "");
+  if (onupdate != null) update = onupdate(update);
+  if (onexit == null) exit.remove(); else onexit(exit);
+  return enter && update ? enter.merge(update).order() : update;
+}
+
+function selection_merge$1(selection) {
+  if (!(selection instanceof Selection$1)) throw new Error("invalid merge");
+
+  for (var groups0 = this._groups, groups1 = selection._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
+    for (var group0 = groups0[j], group1 = groups1[j], n = group0.length, merge = merges[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group0[i] || group1[i]) {
+        merge[i] = node;
+      }
+    }
+  }
+
+  for (; j < m0; ++j) {
+    merges[j] = groups0[j];
+  }
+
+  return new Selection$1(merges, this._parents);
+}
+
+function selection_order$1() {
+
+  for (var groups = this._groups, j = -1, m = groups.length; ++j < m;) {
+    for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
+      if (node = group[i]) {
+        if (next && node.compareDocumentPosition(next) ^ 4) next.parentNode.insertBefore(node, next);
+        next = node;
+      }
+    }
+  }
+
+  return this;
+}
+
+function selection_sort$1(compare) {
+  if (!compare) compare = ascending$2;
+
+  function compareNode(a, b) {
+    return a && b ? compare(a.__data__, b.__data__) : !a - !b;
+  }
+
+  for (var groups = this._groups, m = groups.length, sortgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, sortgroup = sortgroups[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        sortgroup[i] = node;
+      }
+    }
+    sortgroup.sort(compareNode);
+  }
+
+  return new Selection$1(sortgroups, this._parents).order();
+}
+
+function ascending$2(a, b) {
+  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+}
+
+function selection_call$1() {
+  var callback = arguments[0];
+  arguments[0] = this;
+  callback.apply(null, arguments);
+  return this;
+}
+
+function selection_nodes$1() {
+  return Array.from(this);
+}
+
+function selection_node$1() {
+
+  for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+    for (var group = groups[j], i = 0, n = group.length; i < n; ++i) {
+      var node = group[i];
+      if (node) return node;
+    }
+  }
+
+  return null;
+}
+
+function selection_size$1() {
+  let size = 0;
+  for (const node of this) ++size; // eslint-disable-line no-unused-vars
+  return size;
+}
+
+function selection_empty$1() {
+  return !this.node();
+}
+
+function selection_each$1(callback) {
+
+  for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+    for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
+      if (node = group[i]) callback.call(node, node.__data__, i, group);
+    }
+  }
+
+  return this;
+}
+
+function attrRemove$1(name) {
+  return function() {
+    this.removeAttribute(name);
+  };
+}
+
+function attrRemoveNS$1(fullname) {
+  return function() {
+    this.removeAttributeNS(fullname.space, fullname.local);
+  };
+}
+
+function attrConstant$1(name, value) {
+  return function() {
+    this.setAttribute(name, value);
+  };
+}
+
+function attrConstantNS$1(fullname, value) {
+  return function() {
+    this.setAttributeNS(fullname.space, fullname.local, value);
+  };
+}
+
+function attrFunction$1(name, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.removeAttribute(name);
+    else this.setAttribute(name, v);
+  };
+}
+
+function attrFunctionNS$1(fullname, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.removeAttributeNS(fullname.space, fullname.local);
+    else this.setAttributeNS(fullname.space, fullname.local, v);
+  };
+}
+
+function selection_attr$1(name, value) {
+  var fullname = namespace$1(name);
+
+  if (arguments.length < 2) {
+    var node = this.node();
+    return fullname.local
+        ? node.getAttributeNS(fullname.space, fullname.local)
+        : node.getAttribute(fullname);
+  }
+
+  return this.each((value == null
+      ? (fullname.local ? attrRemoveNS$1 : attrRemove$1) : (typeof value === "function"
+      ? (fullname.local ? attrFunctionNS$1 : attrFunction$1)
+      : (fullname.local ? attrConstantNS$1 : attrConstant$1)))(fullname, value));
+}
+
+function defaultView$1(node) {
+  return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
+      || (node.document && node) // node is a Window
+      || node.defaultView; // node is a Document
+}
+
+function styleRemove$1(name) {
+  return function() {
+    this.style.removeProperty(name);
+  };
+}
+
+function styleConstant$1(name, value, priority) {
+  return function() {
+    this.style.setProperty(name, value, priority);
+  };
+}
+
+function styleFunction$1(name, value, priority) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.style.removeProperty(name);
+    else this.style.setProperty(name, v, priority);
+  };
+}
+
+function selection_style$1(name, value, priority) {
+  return arguments.length > 1
+      ? this.each((value == null
+            ? styleRemove$1 : typeof value === "function"
+            ? styleFunction$1
+            : styleConstant$1)(name, value, priority == null ? "" : priority))
+      : styleValue$1(this.node(), name);
+}
+
+function styleValue$1(node, name) {
+  return node.style.getPropertyValue(name)
+      || defaultView$1(node).getComputedStyle(node, null).getPropertyValue(name);
+}
+
+function propertyRemove$1(name) {
+  return function() {
+    delete this[name];
+  };
+}
+
+function propertyConstant$1(name, value) {
+  return function() {
+    this[name] = value;
+  };
+}
+
+function propertyFunction$1(name, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) delete this[name];
+    else this[name] = v;
+  };
+}
+
+function selection_property$1(name, value) {
+  return arguments.length > 1
+      ? this.each((value == null
+          ? propertyRemove$1 : typeof value === "function"
+          ? propertyFunction$1
+          : propertyConstant$1)(name, value))
+      : this.node()[name];
+}
+
+function classArray$1(string) {
+  return string.trim().split(/^|\s+/);
+}
+
+function classList$1(node) {
+  return node.classList || new ClassList$1(node);
+}
+
+function ClassList$1(node) {
+  this._node = node;
+  this._names = classArray$1(node.getAttribute("class") || "");
+}
+
+ClassList$1.prototype = {
+  add: function(name) {
+    var i = this._names.indexOf(name);
+    if (i < 0) {
+      this._names.push(name);
+      this._node.setAttribute("class", this._names.join(" "));
+    }
+  },
+  remove: function(name) {
+    var i = this._names.indexOf(name);
+    if (i >= 0) {
+      this._names.splice(i, 1);
+      this._node.setAttribute("class", this._names.join(" "));
+    }
+  },
+  contains: function(name) {
+    return this._names.indexOf(name) >= 0;
+  }
+};
+
+function classedAdd$1(node, names) {
+  var list = classList$1(node), i = -1, n = names.length;
+  while (++i < n) list.add(names[i]);
+}
+
+function classedRemove$1(node, names) {
+  var list = classList$1(node), i = -1, n = names.length;
+  while (++i < n) list.remove(names[i]);
+}
+
+function classedTrue$1(names) {
+  return function() {
+    classedAdd$1(this, names);
+  };
+}
+
+function classedFalse$1(names) {
+  return function() {
+    classedRemove$1(this, names);
+  };
+}
+
+function classedFunction$1(names, value) {
+  return function() {
+    (value.apply(this, arguments) ? classedAdd$1 : classedRemove$1)(this, names);
+  };
+}
+
+function selection_classed$1(name, value) {
+  var names = classArray$1(name + "");
+
+  if (arguments.length < 2) {
+    var list = classList$1(this.node()), i = -1, n = names.length;
+    while (++i < n) if (!list.contains(names[i])) return false;
+    return true;
+  }
+
+  return this.each((typeof value === "function"
+      ? classedFunction$1 : value
+      ? classedTrue$1
+      : classedFalse$1)(names, value));
+}
+
+function textRemove$1() {
+  this.textContent = "";
+}
+
+function textConstant$1(value) {
+  return function() {
+    this.textContent = value;
+  };
+}
+
+function textFunction$1(value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    this.textContent = v == null ? "" : v;
+  };
+}
+
+function selection_text$1(value) {
+  return arguments.length
+      ? this.each(value == null
+          ? textRemove$1 : (typeof value === "function"
+          ? textFunction$1
+          : textConstant$1)(value))
+      : this.node().textContent;
+}
+
+function htmlRemove$1() {
+  this.innerHTML = "";
+}
+
+function htmlConstant$1(value) {
+  return function() {
+    this.innerHTML = value;
+  };
+}
+
+function htmlFunction$1(value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    this.innerHTML = v == null ? "" : v;
+  };
+}
+
+function selection_html$1(value) {
+  return arguments.length
+      ? this.each(value == null
+          ? htmlRemove$1 : (typeof value === "function"
+          ? htmlFunction$1
+          : htmlConstant$1)(value))
+      : this.node().innerHTML;
+}
+
+function raise$1() {
+  if (this.nextSibling) this.parentNode.appendChild(this);
+}
+
+function selection_raise$1() {
+  return this.each(raise$1);
+}
+
+function lower$1() {
+  if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
+}
+
+function selection_lower$1() {
+  return this.each(lower$1);
+}
+
+function selection_append$1(name) {
+  var create = typeof name === "function" ? name : creator$1(name);
+  return this.select(function() {
+    return this.appendChild(create.apply(this, arguments));
+  });
+}
+
+function constantNull$1() {
+  return null;
+}
+
+function selection_insert$1(name, before) {
+  var create = typeof name === "function" ? name : creator$1(name),
+      select = before == null ? constantNull$1 : typeof before === "function" ? before : selector$1(before);
+  return this.select(function() {
+    return this.insertBefore(create.apply(this, arguments), select.apply(this, arguments) || null);
+  });
+}
+
+function remove$1() {
+  var parent = this.parentNode;
+  if (parent) parent.removeChild(this);
+}
+
+function selection_remove$1() {
+  return this.each(remove$1);
+}
+
+function selection_cloneShallow$1() {
+  var clone = this.cloneNode(false), parent = this.parentNode;
+  return parent ? parent.insertBefore(clone, this.nextSibling) : clone;
+}
+
+function selection_cloneDeep$1() {
+  var clone = this.cloneNode(true), parent = this.parentNode;
+  return parent ? parent.insertBefore(clone, this.nextSibling) : clone;
+}
+
+function selection_clone$1(deep) {
+  return this.select(deep ? selection_cloneDeep$1 : selection_cloneShallow$1);
+}
+
+function selection_datum$1(value) {
+  return arguments.length
+      ? this.property("__data__", value)
+      : this.node().__data__;
+}
+
+function contextListener$1(listener) {
+  return function(event) {
+    listener.call(this, event, this.__data__);
+  };
+}
+
+function parseTypenames$2(typenames) {
+  return typenames.trim().split(/^|\s+/).map(function(t) {
+    var name = "", i = t.indexOf(".");
+    if (i >= 0) name = t.slice(i + 1), t = t.slice(0, i);
+    return {type: t, name: name};
+  });
+}
+
+function onRemove$1(typename) {
+  return function() {
+    var on = this.__on;
+    if (!on) return;
+    for (var j = 0, i = -1, m = on.length, o; j < m; ++j) {
+      if (o = on[j], (!typename.type || o.type === typename.type) && o.name === typename.name) {
+        this.removeEventListener(o.type, o.listener, o.options);
+      } else {
+        on[++i] = o;
+      }
+    }
+    if (++i) on.length = i;
+    else delete this.__on;
+  };
+}
+
+function onAdd$1(typename, value, options) {
+  return function() {
+    var on = this.__on, o, listener = contextListener$1(value);
+    if (on) for (var j = 0, m = on.length; j < m; ++j) {
+      if ((o = on[j]).type === typename.type && o.name === typename.name) {
+        this.removeEventListener(o.type, o.listener, o.options);
+        this.addEventListener(o.type, o.listener = listener, o.options = options);
+        o.value = value;
+        return;
+      }
+    }
+    this.addEventListener(typename.type, listener, options);
+    o = {type: typename.type, name: typename.name, value: value, listener: listener, options: options};
+    if (!on) this.__on = [o];
+    else on.push(o);
+  };
+}
+
+function selection_on$1(typename, value, options) {
+  var typenames = parseTypenames$2(typename + ""), i, n = typenames.length, t;
+
+  if (arguments.length < 2) {
+    var on = this.node().__on;
+    if (on) for (var j = 0, m = on.length, o; j < m; ++j) {
+      for (i = 0, o = on[j]; i < n; ++i) {
+        if ((t = typenames[i]).type === o.type && t.name === o.name) {
+          return o.value;
+        }
+      }
+    }
+    return;
+  }
+
+  on = value ? onAdd$1 : onRemove$1;
+  for (i = 0; i < n; ++i) this.each(on(typenames[i], value, options));
+  return this;
+}
+
+function dispatchEvent$1(node, type, params) {
+  var window = defaultView$1(node),
+      event = window.CustomEvent;
+
+  if (typeof event === "function") {
+    event = new event(type, params);
+  } else {
+    event = window.document.createEvent("Event");
+    if (params) event.initEvent(type, params.bubbles, params.cancelable), event.detail = params.detail;
+    else event.initEvent(type, false, false);
+  }
+
+  node.dispatchEvent(event);
+}
+
+function dispatchConstant$1(type, params) {
+  return function() {
+    return dispatchEvent$1(this, type, params);
+  };
+}
+
+function dispatchFunction$1(type, params) {
+  return function() {
+    return dispatchEvent$1(this, type, params.apply(this, arguments));
+  };
+}
+
+function selection_dispatch$1(type, params) {
+  return this.each((typeof params === "function"
+      ? dispatchFunction$1
+      : dispatchConstant$1)(type, params));
+}
+
+function* selection_iterator$1() {
+  for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+    for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
+      if (node = group[i]) yield node;
+    }
+  }
+}
+
+var root$1 = [null];
+
+function Selection$1(groups, parents) {
+  this._groups = groups;
+  this._parents = parents;
+}
+
+function selection$1() {
+  return new Selection$1([[document.documentElement]], root$1);
+}
+
+function selection_selection$1() {
+  return this;
+}
+
+Selection$1.prototype = selection$1.prototype = {
+  constructor: Selection$1,
+  select: selection_select$1,
+  selectAll: selection_selectAll$1,
+  selectChild: selection_selectChild$1,
+  selectChildren: selection_selectChildren$1,
+  filter: selection_filter$1,
+  data: selection_data$1,
+  enter: selection_enter$1,
+  exit: selection_exit$1,
+  join: selection_join$1,
+  merge: selection_merge$1,
+  selection: selection_selection$1,
+  order: selection_order$1,
+  sort: selection_sort$1,
+  call: selection_call$1,
+  nodes: selection_nodes$1,
+  node: selection_node$1,
+  size: selection_size$1,
+  empty: selection_empty$1,
+  each: selection_each$1,
+  attr: selection_attr$1,
+  style: selection_style$1,
+  property: selection_property$1,
+  classed: selection_classed$1,
+  text: selection_text$1,
+  html: selection_html$1,
+  raise: selection_raise$1,
+  lower: selection_lower$1,
+  append: selection_append$1,
+  insert: selection_insert$1,
+  remove: selection_remove$1,
+  clone: selection_clone$1,
+  datum: selection_datum$1,
+  on: selection_on$1,
+  dispatch: selection_dispatch$1,
+  [Symbol.iterator]: selection_iterator$1
+};
+
+function select$1(selector) {
+  return typeof selector === "string"
+      ? new Selection$1([[document.querySelector(selector)]], [document.documentElement])
+      : new Selection$1([[selector]], root$1);
+}
+
+function selectAll$1(selector) {
+  return typeof selector === "string"
+      ? new Selection$1([document.querySelectorAll(selector)], [document.documentElement])
+      : new Selection$1([selector == null ? [] : array$1(selector)], root$1);
+}
+
+function initRange$1(domain, range) {
+  switch (arguments.length) {
+    case 0: break;
+    case 1: this.range(domain); break;
+    default: this.range(range).domain(domain); break;
+  }
+  return this;
+}
+
+const implicit = Symbol("implicit");
+
+function ordinal() {
+  var index = new Map(),
+      domain = [],
+      range = [],
+      unknown = implicit;
+
+  function scale(d) {
+    var key = d + "", i = index.get(key);
+    if (!i) {
+      if (unknown !== implicit) return unknown;
+      index.set(key, i = domain.push(d));
+    }
+    return range[(i - 1) % range.length];
+  }
+
+  scale.domain = function(_) {
+    if (!arguments.length) return domain.slice();
+    domain = [], index = new Map();
+    for (const value of _) {
+      const key = value + "";
+      if (index.has(key)) continue;
+      index.set(key, domain.push(value));
+    }
+    return scale;
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range = Array.from(_), scale) : range.slice();
+  };
+
+  scale.unknown = function(_) {
+    return arguments.length ? (unknown = _, scale) : unknown;
+  };
+
+  scale.copy = function() {
+    return ordinal(domain, range).unknown(unknown);
+  };
+
+  initRange$1.apply(scale, arguments);
+
+  return scale;
+}
+
+function colors(specifier) {
+  var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
+  while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
+  return colors;
+}
+
+var schemePaired = colors("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
 
 var resizeObservers = [];
 
@@ -3274,12 +4236,73 @@ function svg(container, options) {
     return svg;
 }
 
-var Sankey = /** @class */ (function () {
-    function Sankey(options) {
+class Basechart {
+    constructor(options) {
         this.container = document.querySelector("body");
         this.h = 200;
-        this.links = [];
+        this.id = "basechart";
+        this.locale = "en-GB";
         this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
+        this.rh = 160;
+        this.rw = 150;
+        this.scale = {};
+        this.w = 200;
+        if (options.margin !== undefined) {
+            let m = options.margin;
+            m.left = isNaN(m.left) ? 0 : m.left;
+            m.right = isNaN(m.right) ? 0 : m.right;
+            m.top = isNaN(m.top) ? 0 : m.top;
+            m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
+            this.margin = m;
+        }
+        if (options.locale !== undefined) {
+            this.locale = options.locale;
+        }
+        if (options.container !== undefined) {
+            this.container = options.container;
+        }
+        const box = this.container.getBoundingClientRect();
+        this.h = box.height;
+        this.w = box.width;
+        this.rh = this.h - this.margin.top - this.margin.bottom;
+        this.rw = this.w - this.margin.left - this.margin.right;
+        this.scale.color = ordinal(schemePaired);
+        this.scale.x = (x) => x;
+        this.scale.y = (y) => y;
+    }
+    /**
+     * Clears selection from chart
+     */
+    clearSelection() {
+        selectAll$1(".selected").classed("selected", false);
+        selectAll$1(".fade").classed("fade", false);
+    }
+    /**
+     * Removes this chart from the DOM
+     */
+    destroy() {
+        select$1(this.container).select("svg").remove();
+        return this;
+    }
+    draw() {
+        if (select$1(this.container).select("svg").empty()) {
+            let sg = svg(this.container, {
+                height: this.h,
+                margin: this.margin,
+                width: this.w
+            });
+            const s = select$1(sg)
+                .on("click", () => this.clearSelection());
+            this.canvas = s.select(".canvas");
+        }
+        return this;
+    }
+}
+
+class Sankey extends Basechart {
+    constructor(options) {
+        super(options);
+        this.links = [];
         this.nodeMoveX = true;
         this.nodeMoveY = true;
         this.nodes = [];
@@ -3287,31 +4310,11 @@ var Sankey = /** @class */ (function () {
         this.orient = "horizontal";
         this.padding = 5;
         this.playback = false;
-        this.rh = 160;
-        this.rw = 150;
-        this.w = 200;
         this._extent = [0, 0]; // min/max node values
         this._fp = new Intl.NumberFormat("en-GB", { style: "decimal" });
-        this._id = "";
-        this._linkGenerator = function () { return true; };
+        this._linkGenerator = () => true;
         this._layerGap = 0;
         this._totalLayers = 0;
-        if (options.margin !== undefined) {
-            var m = options.margin;
-            m.left = isNaN(m.left) ? 0 : m.left;
-            m.right = isNaN(m.right) ? 0 : m.right;
-            m.top = isNaN(m.top) ? 0 : m.top;
-            m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
-            this.margin = m;
-        }
-        if (options.container !== undefined) {
-            this.container = options.container;
-            var box = this.container.getBoundingClientRect();
-            this.h = box.height;
-            this.w = box.width;
-            this.rh = this.h - this.margin.top - this.margin.bottom;
-            this.rw = this.w - this.margin.left - this.margin.right;
-        }
         if (options.padding !== undefined) {
             this.padding = options.padding;
         }
@@ -3334,43 +4337,30 @@ var Sankey = /** @class */ (function () {
             .initialise();
     }
     /**
-     * Clears selection from Sankey
-     */
-    Sankey.prototype.clearSelection = function () {
-        selectAll(".selected").classed("selected", false);
-        return this;
-    };
-    /**
      * Saves data into Sankey
      * @param nodes - Sankey nodes
      * @param links - Sankey links
      */
-    Sankey.prototype.data = function (nodes, links) {
+    data(nodes, links) {
         this._initDataStructure(nodes, links);
         return this;
-    };
-    /**
-     * Removes this chart from the DOM
-     */
-    Sankey.prototype.destroy = function () {
-        select(this.container).select("svg").remove();
-        return this;
-    };
+    }
     /**
      * draws the Sankey
      */
-    Sankey.prototype.draw = function () {
+    draw() {
+        super.draw();
         this._drawCanvas()
             ._drawNodes()
             ._drawLinks()
             ._drawLabels()
             ._drawPlayback();
         return this;
-    };
+    }
     /**
      * Recalculate internal values
      */
-    Sankey.prototype.initialise = function () {
+    initialise() {
         this._nodeValueLayer()
             ._scalingExtent()
             ._scaling()
@@ -3379,145 +4369,137 @@ var Sankey = /** @class */ (function () {
             ._positionNodeInLayer()
             ._positionLinks();
         return this;
-    };
+    }
     /**
      * Serialise the Sankey data
      */
-    Sankey.prototype.toString = function () {
-        var nodes = this.nodes.map(function (n) { return n.name + ": " + n.value + " (L: " + n.layer + ")"; }).join("\n");
-        var links = this.links.map(function (l) { return l.nodeIn.name + "->" + l.nodeOut.name; }).join("\n");
-        return "nodes:\n" + nodes + "\n\nlinks:\n" + links;
-    };
+    toString() {
+        let nodes = this.nodes.map(n => `${n.name}: ${n.value} (L: ${n.layer})`).join("\n");
+        let links = this.links.map(l => `${l.nodeIn.name}->${l.nodeOut.name}`).join("\n");
+        return `nodes:\n${nodes}\n\nlinks:\n${links}`;
+    }
     // ***** PRIVATE METHODS
-    Sankey.prototype._drawCanvas = function () {
-        var _this = this;
-        this._id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
-        var sg = svg(this.container, {
-            class: "sankey",
-            height: this.h,
-            id: this._id,
-            margin: this.margin,
-            width: this.w
-        });
-        var s = select(sg);
-        s.on("click", function () { return _this.clearSelection(); });
-        var defs = s.select("defs");
-        var gb = defs.append("filter").attr("id", "blur");
+    _drawCanvas() {
+        this.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
+        const svg = this.container.querySelector("svg");
+        if (svg) {
+            svg.classList.add("sankey");
+            svg.id = this.id;
+        }
+        const s = select(svg);
+        const defs = s.select("defs");
+        const gb = defs.append("filter").attr("id", "blur");
         gb.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 5);
         return this;
-    };
-    Sankey.prototype._drawLabels = function () {
-        var _this = this;
-        var canvas = select(this.container).select(".canvas");
-        var nodes = canvas.selectAll("g.node");
-        var fade = this.playback ? " shadow" : "";
-        var outerLabel = nodes.append("text")
-            .attr("class", function (d) { return "node-label outer" + (d.layer > 0 ? fade : ""); })
+    }
+    _drawLabels() {
+        const nodes = this.canvas.selectAll("g.node");
+        const fade = this.playback ? " shadow" : "";
+        const outerLabel = nodes.append("text")
+            .attr("class", (d) => "node-label outer" + (d.layer > 0 ? fade : ""))
             .attr("dy", "0.35em")
             .attr("opacity", 0);
         if (this.orient === "horizontal") {
             outerLabel
-                .attr("x", function (d) { return d.x < (_this.rw / 2) ? _this.nodeSize + 6 : -6; })
-                .attr("y", function (d) { return d.h / 2; })
-                .attr("text-anchor", function (d) { return d.x + _this.nodeSize > _this.rw / 2 ? "end" : "start"; })
-                .style("opacity", function (d) { return d.h > 20 ? null : 0; })
-                .text(function (d) { return d.name; });
+                .attr("x", (d) => d.x < (this.rw / 2) ? this.nodeSize + 6 : -6)
+                .attr("y", (d) => d.h / 2)
+                .attr("text-anchor", (d) => d.x + this.nodeSize > this.rw / 2 ? "end" : "start")
+                .style("opacity", (d) => d.h > 20 ? null : 0)
+                .text((d) => d.name);
         }
         else {
             outerLabel
-                .attr("x", function (d) { return d.w / 2; })
-                .attr("y", function (d) { return d.y < (_this.rh / 2) ? _this.nodeSize + 10 : -10; })
+                .attr("x", (d) => d.w / 2)
+                .attr("y", (d) => d.y < (this.rh / 2) ? this.nodeSize + 10 : -10)
                 .attr("text-anchor", "middle")
-                .text(function (d) { return d.w > d.name.length * 7 ? d.name : ""; });
+                .text((d) => d.w > d.name.length * 7 ? d.name : "");
         }
-        var innerLabel = nodes.append("text")
-            .attr("class", function (d) { return "node-label inner" + (d.layer > 0 ? fade : ""); })
+        const innerLabel = nodes.append("text")
+            .attr("class", (d) => "node-label inner" + (d.layer > 0 ? fade : ""))
             .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
             .attr("opacity", 0);
         if (this.orient === "horizontal") {
             innerLabel
-                .attr("x", function (d) { return -d.h / 2; })
-                .attr("y", function () { return _this.nodeSize / 2; })
+                .attr("x", (d) => -d.h / 2)
+                .attr("y", () => this.nodeSize / 2)
                 .attr("transform", "rotate(270)")
-                .text(function (d) { return d.h > 50 ? _this._fp.format(d.value) : ""; });
+                .text((d) => d.h > 50 ? this._fp.format(d.value) : "");
         }
         else {
             innerLabel
-                .attr("x", function (d) { return d.w / 2; })
-                .attr("y", function () { return _this.nodeSize / 2; })
-                .text(function (d) { return d.w > 50 ? _this._fp.format(d.value) : ""; });
+                .attr("x", (d) => d.w / 2)
+                .attr("y", () => this.nodeSize / 2)
+                .text((d) => d.w > 50 ? this._fp.format(d.value) : "");
         }
         if (this.orient === "horizontal") {
-            outerLabel.style("opacity", function (d) { return d.h > 50 ? 1 : 0; });
-            innerLabel.style("opacity", function (d) { return d.h > 50 ? 1 : 0; });
+            outerLabel.style("opacity", (d) => d.h > 50 ? 1 : 0);
+            innerLabel.style("opacity", (d) => d.h > 50 ? 1 : 0);
         }
         else {
-            outerLabel.style("opacity", function (d) { return d.w > 50 ? 1 : 0; });
-            innerLabel.style("opacity", function (d) { return d.w > 50 ? 1 : 0; });
+            outerLabel.style("opacity", (d) => d.w > 50 ? 1 : 0);
+            innerLabel.style("opacity", (d) => d.w > 50 ? 1 : 0);
         }
         return this;
-    };
-    Sankey.prototype._drawLinks = function () {
-        var _this = this;
-        var svg = select(this.container).select("svg");
-        var canvas = svg.select(".canvas");
-        var fade = this.playback ? " shadow" : "";
+    }
+    _drawLinks() {
+        const svg = select(this.container).select("svg");
+        const canvas = svg.select(".canvas");
+        const fade = this.playback ? " shadow" : "";
         if (this.orient === "horizontal") {
             this._linkGenerator = linkHorizontal()
-                .source(function (d) { return [d.nodeIn.x + _this.nodeSize, d.y0]; })
-                .target(function (d) { return [d.nodeOut.x, d.y1]; })
-                .x(function (d) { return d[0]; })
-                .y(function (d) { return d[1]; });
+                .source((d) => [d.nodeIn.x + this.nodeSize, d.y0])
+                .target((d) => [d.nodeOut.x, d.y1])
+                .x((d) => d[0])
+                .y((d) => d[1]);
         }
         else {
             this._linkGenerator = linkVertical()
-                .source(function (d) { return [d.y0, d.nodeIn.y + _this.nodeSize]; })
-                .target(function (d) { return [d.y1, d.nodeOut.y]; })
-                .x(function (d) { return d[0]; })
-                .y(function (d) { return d[1]; });
+                .source((d) => [d.y0, d.nodeIn.y + this.nodeSize])
+                .target((d) => [d.y1, d.nodeOut.y])
+                .x((d) => d[0])
+                .y((d) => d[1]);
         }
-        var links = canvas.append("g")
+        const links = canvas.append("g")
             .attr("class", "links")
             .selectAll("g")
             .data(this.links).enter()
             .append("g")
-            .attr("id", function (d) { return _this._id + "_" + d.id; })
+            .attr("id", d => `${this.id}_${d.id}`)
             .attr("class", "link" + fade)
-            .on("click", function (event) { return _this._linkClickHandler(event); });
-        this.links.forEach(function (lk) {
-            lk.dom = document.getElementById(_this._id + "_" + lk.id);
+            .on("click", event => this._linkClickHandler(event));
+        this.links.forEach((lk) => {
+            lk.dom = document.getElementById(`${this.id}_${lk.id}`);
         });
         selectAll("g.links").lower();
-        var path = links
+        const path = links
             .append("path")
-            .attr("id", function (d) { return _this._id + "_p" + d.id; })
+            .attr("id", d => `${this.id}_p${d.id}`)
             .attr("class", "link")
-            .attr("stroke", function (d) { return d.fill ? d.fill : d.nodeIn.fill; })
-            .attr("stroke-width", function (d) { return d.w; })
+            .attr("stroke", (d) => d.fill ? d.fill : d.nodeIn.fill)
+            .attr("stroke-width", (d) => d.w)
             .attr("fill", "none");
         links.append("title")
-            .text(function (d) { return d.nodeIn.name + " -> " + d.nodeOut.name + " - " + _this._fp.format(d.value); });
-        path.attr("d", function (d) { return _this._linkGenerator(d); });
+            .text((d) => `${d.nodeIn.name} -> ${d.nodeOut.name} - ${this._fp.format(d.value)}`);
+        path.attr("d", d => this._linkGenerator(d));
         return this;
-    };
-    Sankey.prototype._drawNodes = function () {
-        var _this = this;
-        var self = this;
-        var svg = select(this.container).select("svg");
-        var canvas = svg.select(".canvas");
-        var fade = this.playback ? " shadow" : "";
-        var nodes = canvas.append("g")
+    }
+    _drawNodes() {
+        const self = this;
+        const svg = select(this.container).select("svg");
+        const canvas = svg.select(".canvas");
+        const fade = this.playback ? " shadow" : "";
+        const nodes = canvas.append("g")
             .attr("class", "nodes")
             .selectAll("g.node")
             .data(this.nodes).enter()
             .append("g")
-            .attr("id", function (d) { return _this._id + "_" + d.id; })
-            .attr("class", function (d) { return "node" + (d.layer > 0 ? fade : ""); })
-            .attr("transform", function (d) {
-            return _this.orient === "horizontal"
-                ? "translate(" + d.x + "," + -d.h + ")"
-                : "translate(" + -d.w + "," + d.y + ")";
+            .attr("id", (d) => `${this.id}_${d.id}`)
+            .attr("class", (d) => "node" + (d.layer > 0 ? fade : ""))
+            .attr("transform", (d) => {
+            return this.orient === "horizontal"
+                ? `translate(${d.x},${-d.h})`
+                : `translate(${-d.w},${d.y})`;
         })
             .call(
         // @ts-ignore
@@ -3525,30 +4507,30 @@ var Sankey = /** @class */ (function () {
             .on("start", dragstart)
             .on("drag", dragmove)
             .on("end", dragend))
-            .on("click", function (event) { return _this._nodeClickHandler(event); });
-        this.nodes.forEach(function (node) {
-            node.dom = document.getElementById(_this._id + "_" + node.id);
+            .on("click", event => this._nodeClickHandler(event));
+        this.nodes.forEach((node) => {
+            node.dom = document.getElementById(`${this.id}_${node.id}`);
         });
         select("g.nodes").raise();
-        var rect = nodes.append("rect")
-            .attr("id", function (d) { return _this._id + "_r" + d.id; })
+        const rect = nodes.append("rect")
+            .attr("id", (d) => `${this.id}_r${d.id}`)
             .attr("class", "node")
-            .attr("height", function (d) { return d.h + "px"; })
-            .attr("width", function (d) { return d.w + "px"; })
-            .attr("fill", function (d) { return d.fill; })
+            .attr("height", (d) => d.h + "px")
+            .attr("width", (d) => d.w + "px")
+            .attr("fill", (d) => d.fill)
             .attr("x", 0)
             .attr("y", 0)
             .attr("opacity", 1);
         nodes.append("rect")
             .attr("class", "shadow node")
-            .attr("height", function (d) { return (_this.playback ? d.h : 0) + "px"; })
-            .attr("width", function (d) { return (_this.playback ? d.w : 0) + "px"; })
+            .attr("height", (d) => (this.playback ? d.h : 0) + "px")
+            .attr("width", (d) => (this.playback ? d.w : 0) + "px")
             .attr("x", 0)
             .attr("y", 0);
         nodes
-            .attr("transform", function (d) { return "translate(" + d.x + " " + d.y + ")"; });
+            .attr("transform", (d) => `translate(${d.x} ${d.y})`);
         nodes.append("title")
-            .text(function (d) { return d.name + " - " + _this._fp.format(d.value); });
+            .text((d) => `${d.name} - ${this._fp.format(d.value)}`);
         function dragstart(event, d) {
             if (!d.__x) {
                 d.__x = event.x;
@@ -3566,8 +4548,8 @@ var Sankey = /** @class */ (function () {
         function dragmove(event, d) {
             select(this)
                 .attr("transform", function (d) {
-                var dx = event.x - d.__x;
-                var dy = event.y - d.__y;
+                const dx = event.x - d.__x;
+                const dy = event.y - d.__y;
                 // x direction
                 if (self.nodeMoveX) {
                     d.x = d.__x0 + dx;
@@ -3582,11 +4564,11 @@ var Sankey = /** @class */ (function () {
                         d.y = 0;
                     }
                 }
-                return "translate(" + d.x + ", " + d.y + ")";
+                return `translate(${d.x}, ${d.y})`;
             });
             self._positionLinks();
             selectAll("path.link")
-                .attr("d", function (d) { return self._linkGenerator(d); });
+                .attr("d", d => self._linkGenerator(d));
         }
         function dragend(event, d) {
             delete d.__x;
@@ -3597,33 +4579,31 @@ var Sankey = /** @class */ (function () {
             delete d.__y1;
         }
         return this;
-    };
-    Sankey.prototype._drawPlayback = function () {
-        var _this = this;
+    }
+    _drawPlayback() {
         if (this.playback) {
-            this.nodes.forEach(function (node) {
+            this.nodes.forEach((node) => {
                 if (node.story && node.linksOut.length > 0) {
-                    var c = select(node.dom).append("circle")
+                    const c = select(node.dom).append("circle")
                         .attr("class", "playback-prompt")
                         .attr("cx", node.w / 2)
                         .attr("cy", node.h / 2)
                         .attr("filter", "url(#blur)")
                         .attr("r", 0)
-                        .on("click", function (event) { return _this._playbackClickHandler(event); });
+                        .on("click", event => this._playbackClickHandler(event));
                     c.append("title").text("View notes about this flow stage");
                     c.attr("r", 15);
                 }
             });
         }
         return this;
-    };
+    }
     /**
      * Creates the initial data structures
      */
-    Sankey.prototype._initDataStructure = function (nodes, links) {
-        var _this = this;
-        nodes.forEach(function (node, i) {
-            var n = node;
+    _initDataStructure(nodes, links) {
+        nodes.forEach((node, i) => {
+            const n = node;
             n.h = 0; // height
             n.id = i + 1;
             n.layer = -1; // denotes membership to a visual grouping
@@ -3632,68 +4612,67 @@ var Sankey = /** @class */ (function () {
             n.w = 0; // width
             n.x = 0; // position onscreen
             n.y = 0;
-            _this.nodes.push(n);
+            this.nodes.push(n);
         });
-        links.forEach(function (link, i) {
-            var l = link;
-            l.nodeIn = _this.nodes[link.source]; // replaces source in other sankey models
-            l.nodeOut = _this.nodes[link.target]; // ditto target
+        links.forEach((link, i) => {
+            const l = link;
+            l.nodeIn = this.nodes[link.source]; // replaces source in other sankey models
+            l.nodeOut = this.nodes[link.target]; // ditto target
             l.id = "L" + (i + 1);
             l.w = 0; // width
             l.y0 = 0; // value at source node (horizontal: top right y, vertical: bottom left x)
             l.y1 = 0; // value at target node (horizontal: bottom left y, vertical; top right x)
-            _this.links.push(l);
-            _this.links[i].nodeIn.linksOut.push(_this.links[i]);
-            _this.links[i].nodeOut.linksIn.push(_this.links[i]);
+            this.links.push(l);
+            this.links[i].nodeIn.linksOut.push(this.links[i]);
+            this.links[i].nodeOut.linksIn.push(this.links[i]);
         });
-    };
-    Sankey.prototype._linkClickHandler = function (event) {
-        var el = event.target;
+    }
+    _linkClickHandler(event) {
+        const el = event.target;
         event.stopPropagation();
         this.clearSelection();
         window.dispatchEvent(new CustomEvent("link-selected", { detail: el }));
         select(el).classed("selected", true);
-    };
-    Sankey.prototype._nodeClickHandler = function (event) {
-        var el = event.target;
+    }
+    _nodeClickHandler(event) {
+        const el = event.target;
         event.stopPropagation();
         this.clearSelection();
-        var activeNode = select(el);
-        var dt = activeNode.datum();
+        const activeNode = select(el);
+        const dt = activeNode.datum();
         window.dispatchEvent(new CustomEvent("node-selected", { detail: el }));
-        dt.linksIn.forEach(function (link) {
+        dt.linksIn.forEach((link) => {
             select(link.dom).select("path").classed("selected", true);
         });
-        dt.linksOut.forEach(function (link) {
+        dt.linksOut.forEach((link) => {
             select(link.dom).select("path").classed("selected", true);
         });
-    };
-    Sankey.prototype._playbackClickHandler = function (event) {
-        var _this = this;
+    }
+    _playbackClickHandler(event) {
         event.stopPropagation();
-        var el = event.target;
+        const el = event.target;
         this.clearSelection();
-        var button = select(el);
+        const button = select(el);
         button
             .attr("r", 0)
             .remove();
-        var activeNode = select(el.parentNode);
-        var dt = activeNode.datum();
-        var narrate = [];
+        const activeNode = select(el.parentNode);
+        const dt = activeNode.datum();
+        const narrate = [];
         if (dt.story) {
             narrate.push(dt);
         }
         if (dt.linksOut.length > 0) {
-            dt.linksOut.forEach(function (link) {
+            dt.linksOut.forEach((link) => {
                 select(link.dom).classed("shadow", false);
                 if (link.story) {
                     narrate.push(link);
                 }
             });
-            this.nodes.forEach(function (node) {
-                var sum = 0, breakdown = false;
+            this.nodes.forEach((node) => {
+                let sum = 0, breakdown = false;
                 if (node.linksIn.length > 0 || node === dt) {
-                    node.linksIn.forEach(function (link) {
+                    node.linksIn.forEach((link) => {
                         if (select(link.dom).classed("shadow")) {
                             sum += link.value;
                         }
@@ -3702,17 +4681,17 @@ var Sankey = /** @class */ (function () {
                         }
                     });
                     if (breakdown || (node === dt && node.linksIn.length === 0)) {
-                        sum = _this._scale(sum);
+                        sum = this.scale(sum);
                         sum = sum >= 0 ? sum : 0;
-                        var shadow = select(node.dom).select(".shadow");
-                        if (_this.orient === "horizontal") {
+                        const shadow = select(node.dom).select(".shadow");
+                        if (this.orient === "horizontal") {
                             shadow
-                                .attr("height", sum + "px");
+                                .attr("height", `${sum}px`);
                         }
                         else {
-                            var x = parseFloat(select(node.dom).attr("x"));
+                            let x = parseFloat(select(node.dom).attr("x"));
                             shadow
-                                .attr("width", sum + "px")
+                                .attr("width", `${sum}px`)
                                 .attr("x", x + sum);
                         }
                         if (sum === 0) {
@@ -3723,46 +4702,45 @@ var Sankey = /** @class */ (function () {
             });
         }
         window.dispatchEvent(new CustomEvent("node-playback", { detail: narrate }));
-    };
+    }
     /**
      * Sets height and width of node
      */
-    Sankey.prototype._nodeSize = function () {
-        var _this = this;
-        this.nodes.forEach(function (node) {
-            if (_this.orient === "horizontal") {
-                node.h = Math.max(1, _this._scale(node.value));
-                node.w = _this.nodeSize;
+    _nodeSize() {
+        this.nodes.forEach((node) => {
+            if (this.orient === "horizontal") {
+                node.h = Math.max(1, this.scale(node.value));
+                node.w = this.nodeSize;
             }
             else {
-                node.h = _this.nodeSize;
-                node.w = Math.max(1, _this._scale(node.value));
+                node.h = this.nodeSize;
+                node.w = Math.max(1, this.scale(node.value));
             }
         });
         return this;
-    };
+    }
     /**
      * Determines each node dimension and layer attribution and finally determines node order within layer
      */
-    Sankey.prototype._nodeValueLayer = function () {
-        var track = new Map();
-        var max = 0;
-        this.nodes.forEach(function (node) {
+    _nodeValueLayer() {
+        const track = new Map();
+        let max = 0;
+        this.nodes.forEach((node) => {
             // calculate value if not already provided
             if (node.value === undefined) {
-                node.value = Math.max(1, node.linksIn.map(function (link) { return link.value; }).reduce(function (ac, s) { return ac + s; }, 0), node.linksOut.map(function (link) { return link.value; }).reduce(function (ac, s) { return ac + s; }, 0));
+                node.value = Math.max(1, node.linksIn.map(link => link.value).reduce((ac, s) => ac + s, 0), node.linksOut.map(link => link.value).reduce((ac, s) => ac + s, 0));
             }
             // calculate layer value
             if (node.linksIn.length === 0) {
                 node.layer = 0;
                 track.set(node.id, []);
             }
-            node.linksOut.forEach(function (link) {
+            node.linksOut.forEach((link) => {
                 if (track.has(link.nodeOut.id)) {
-                    var parent_1 = track.get(node.id);
-                    if (parent_1.findIndex(function (e) { return e === link.nodeOut.id; }) === -1) {
+                    const parent = track.get(node.id);
+                    if (parent.findIndex((e) => e === link.nodeOut.id) === -1) {
                         link.nodeOut.layer = node.layer + 1;
-                        var a = track.get(link.nodeOut.id);
+                        const a = track.get(link.nodeOut.id);
                         a.push(node.id);
                         track.set(link.nodeOut.id, a);
                     }
@@ -3777,26 +4755,25 @@ var Sankey = /** @class */ (function () {
         this._totalLayers = max;
         this._layerGap = (this.orient === "horizontal" ? this.rw : this.rh) / this._totalLayers;
         // sort: by layer asc then by size then by a-z name
-        this.nodes.sort(function (a, b) { return a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1); });
+        this.nodes.sort((a, b) => a.layer - b.layer || b.value - a.value || (b.name > a.name ? -1 : 1));
         return this;
-    };
+    }
     /**
      * Positions links relative to sourcec and destination nodes
      */
-    Sankey.prototype._positionLinks = function () {
-        var _this = this;
+    _positionLinks() {
         // sort: by size then by a-z name
-        this.links.sort(function (a, b) { return b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1); });
-        var source = new Map();
-        var target = new Map();
-        this.links.forEach(function (link) {
-            var src = 0, tgt = 0;
-            link.w = Math.max(1, _this._scale(link.value));
+        this.links.sort((a, b) => b.value - a.value || (b.nodeIn.name > a.nodeIn.name ? -1 : 1));
+        const source = new Map();
+        const target = new Map();
+        this.links.forEach((link) => {
+            let src = 0, tgt = 0;
+            link.w = Math.max(1, this.scale(link.value));
             if (!source.has(link.nodeIn.id)) {
-                source.set(link.nodeIn.id, (_this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
+                source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
             }
             if (!target.has(link.nodeOut.id)) {
-                target.set(link.nodeOut.id, (_this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
+                target.set(link.nodeOut.id, (this.orient === "horizontal") ? link.nodeOut.y : link.nodeOut.x);
             }
             src = source.get(link.nodeIn.id);
             link.y0 = src + (link.w / 2);
@@ -3806,17 +4783,16 @@ var Sankey = /** @class */ (function () {
             target.set(link.nodeOut.id, link.y1 + (link.w / 2));
         });
         return this;
-    };
+    }
     /**
      * spreads the nodes across the chart space by layer
      */
-    Sankey.prototype._positionNodeByLayer = function () {
-        var _this = this;
+    _positionNodeByLayer() {
         if (this.orient === "horizontal") {
-            this.nodes.forEach(function (node) {
-                node.x = node.layer * _this._layerGap;
-                if (node.x >= _this.rw) {
-                    node.x -= _this.nodeSize;
+            this.nodes.forEach((node) => {
+                node.x = node.layer * this._layerGap;
+                if (node.x >= this.rw) {
+                    node.x -= this.nodeSize;
                 }
                 else if (node.x < 0) {
                     node.x = 0;
@@ -3824,10 +4800,10 @@ var Sankey = /** @class */ (function () {
             });
         }
         else {
-            this.nodes.forEach(function (node) {
-                node.y = node.layer * _this._layerGap;
-                if (node.y >= _this.rh) {
-                    node.y -= _this.nodeSize;
+            this.nodes.forEach((node) => {
+                node.y = node.layer * this._layerGap;
+                if (node.y >= this.rh) {
+                    node.y -= this.nodeSize;
                 }
                 else if (node.y < 0) {
                     node.y = 0;
@@ -3835,77 +4811,76 @@ var Sankey = /** @class */ (function () {
             });
         }
         return this;
-    };
+    }
     /**
      * spreads the nodes within layer
      */
-    Sankey.prototype._positionNodeInLayer = function () {
-        var _this = this;
-        var layer = -1, n = 0;
-        var layerTracker = [];
+    _positionNodeInLayer() {
+        let layer = -1, n = 0;
+        let layerTracker = [];
         if (this.orient === "horizontal") {
-            this.nodes.forEach(function (node) {
+            this.nodes.forEach((node) => {
                 if (layer === node.layer) {
                     node.y = n;
-                    n += node.h + _this.padding;
+                    n += node.h + this.padding;
                     layerTracker[layer].sum = n;
                     layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.y = 0;
-                    n = node.h + _this.padding;
-                    layerTracker.push({ nodes: [node], sum: n, total: _this.rh });
+                    n = node.h + this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: this.rh });
                 }
             });
         }
         else {
-            this.nodes.forEach(function (node) {
+            this.nodes.forEach((node) => {
                 if (layer === node.layer) {
                     node.x = n;
-                    n += node.w + _this.padding;
+                    n += node.w + this.padding;
                     layerTracker[layer].sum = n;
                     layerTracker[layer].nodes.push(node);
                 }
                 else {
                     layer = node.layer;
                     node.x = 0;
-                    n = node.w + _this.padding;
-                    layerTracker.push({ nodes: [node], sum: n, total: _this.rw });
+                    n = node.w + this.padding;
+                    layerTracker.push({ nodes: [node], sum: n, total: this.rw });
                 }
             });
         }
         // 2nd pass to widen out layers too tightly clustered together
-        layerTracker.forEach(function (layer) {
+        layerTracker.forEach(layer => {
             if (layer.sum * 1.2 < layer.total && layer.nodes.length > 1) {
-                var customPad_1 = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
-                layer.nodes.forEach(function (node, i) {
-                    if (_this.orient === "horizontal") {
-                        node.y += (i + 1) * customPad_1;
+                const customPad = ((layer.total - layer.sum) * 0.75) / layer.nodes.length;
+                layer.nodes.forEach((node, i) => {
+                    if (this.orient === "horizontal") {
+                        node.y += (i + 1) * customPad;
                     }
                     else {
-                        node.x += (i + 1) * customPad_1;
+                        node.x += (i + 1) * customPad;
                     }
                 });
             }
         });
         return this;
-    };
+    }
     /**
      * Calculates the chart scale
      */
-    Sankey.prototype._scaling = function () {
-        var rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
-        this._scale = linear$1().domain(this._extent).range(rng);
+    _scaling() {
+        const rng = [0, this.orient === "horizontal" ? this.rh : this.rw];
+        this.scale = linear$1().domain(this._extent).range(rng);
         return this;
-    };
+    }
     /**
      * Determines the minimum and maximum extent values to scale nodes by
      */
-    Sankey.prototype._scalingExtent = function () {
-        this._extent[0] = this.nodes.reduce(function (ac, n) { return (ac === undefined || n.value < ac) ? n.value : ac; }, 0);
-        var max = this._extent[0], layer = 0, runningTotal = 0;
-        this.nodes.forEach(function (node) {
+    _scalingExtent() {
+        this._extent[0] = this.nodes.reduce((ac, n) => (ac === undefined || n.value < ac) ? n.value : ac, 0);
+        let max = this._extent[0], layer = 0, runningTotal = 0;
+        this.nodes.forEach((node) => {
             if (node.layer === layer) {
                 runningTotal += node.value;
             }
@@ -3917,8 +4892,7 @@ var Sankey = /** @class */ (function () {
         });
         this._extent[1] = (runningTotal > max ? runningTotal : max) + (this.padding * (this.nodes.length * 2.5));
         return this;
-    };
-    return Sankey;
-}());
+    }
+}
 
 export { Sankey };

@@ -2,7 +2,7 @@ import { pointer, select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";
-import { svg, TMargin } from "@buckneri/spline";
+import { Basechart, TMargin } from "@buckneri/spline";
 
 export type TLink = {
   dom: SVGElement,
@@ -50,11 +50,8 @@ export type TSankeyOptions = {
   playback: boolean,    // changes the visualisation mode
 };
 
-export class Sankey {
-  public container: HTMLElement = document.querySelector("body") as HTMLElement;
-  public h: number = 200;
+export class Sankey extends Basechart {
   public links: TLink[] = [];
-  public margin: TMargin = { bottom: 20, left: 20, right: 30, top: 20 };
   public nodeMoveX: boolean = true;
   public nodeMoveY: boolean = true;
   public nodes: TNode[] = [];
@@ -62,36 +59,15 @@ export class Sankey {
   public orient: TOrientation = "horizontal";
   public padding: number = 5;
   public playback: boolean = false;
-  public rh: number = 160;
-  public rw: number = 150;
-  public w: number = 200;
 
   private _extent: [number, number] = [0, 0]; // min/max node values
   private _fp: Intl.NumberFormat = new Intl.NumberFormat("en-GB", { style: "decimal" });
-  private _id: string = "";
   private _linkGenerator: Function = () => true;
-  private _scale: any;
   private _layerGap: number = 0;
   private _totalLayers: number = 0;
 
   constructor(options: TSankeyOptions) {
-    if (options.margin !== undefined) {
-      let m = options.margin;
-      m.left = isNaN(m.left) ? 0 : m.left;
-      m.right = isNaN(m.right) ? 0 : m.right;
-      m.top = isNaN(m.top) ? 0 : m.top;
-      m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
-      this.margin = m;
-    }
-
-    if (options.container !== undefined) {
-      this.container = options.container;
-      const box: DOMRect = this.container.getBoundingClientRect();
-      this.h = box.height;
-      this.w = box.width;
-      this.rh = this.h - this.margin.top - this.margin.bottom;
-      this.rw = this.w - this.margin.left - this.margin.right;
-    }
+    super(options);
 
     if (options.padding !== undefined) {
       this.padding = options.padding;
@@ -122,14 +98,6 @@ export class Sankey {
   }
 
   /**
-   * Clears selection from Sankey
-   */
-  public clearSelection(): Sankey {
-    selectAll(".selected").classed("selected", false);
-    return this;
-  }
-
-  /**
    * Saves data into Sankey
    * @param nodes - Sankey nodes
    * @param links - Sankey links
@@ -140,22 +108,17 @@ export class Sankey {
   }
 
   /**
-   * Removes this chart from the DOM
-   */
-  public destroy(): Sankey {
-    select(this.container).select("svg").remove();
-    return this;
-  }
-
-  /**
    * draws the Sankey
    */
   public draw(): Sankey {
+    super.draw();
+
     this._drawCanvas()
         ._drawNodes()
         ._drawLinks()
         ._drawLabels()
         ._drawPlayback();
+
     return this;
   }
 
@@ -185,19 +148,14 @@ export class Sankey {
   // ***** PRIVATE METHODS
 
   private _drawCanvas(): Sankey {
-    this._id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
-  
-    const sg: SVGElement = svg(this.container, {
-      class: "sankey",
-      height: this.h, 
-      id: this._id,
-      margin: this.margin,
-      width: this.w
-    }) as any;
+    this.id = "sankey" + Array.from(document.querySelectorAll(".sankey")).length;
+    const svg = this.container.querySelector("svg");
+    if (svg) {
+      svg.classList.add("sankey");
+      svg.id = this.id;
+    }
 
-    const s = select(sg);
-    s.on("click", () => this.clearSelection());
-
+    const s = select(svg);
     const defs = s.select("defs");
     const gb = defs.append("filter").attr("id", "blur");
     gb.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 5);
@@ -206,8 +164,7 @@ export class Sankey {
   }
 
   private _drawLabels(): Sankey {
-    const canvas = select(this.container).select(".canvas");
-    const nodes = canvas.selectAll("g.node");
+    const nodes = this.canvas.selectAll("g.node");
     const fade = this.playback ? " shadow" : "";
 
     const outerLabel = nodes.append("text")
@@ -284,19 +241,19 @@ export class Sankey {
       .selectAll("g")
       .data(this.links).enter()
       .append("g")
-        .attr("id", d => `${this._id}_${d.id}`)
+        .attr("id", d => `${this.id}_${d.id}`)
         .attr("class", "link" + fade)
         .on("click", event => this._linkClickHandler(event));
 
     this.links.forEach((lk: TLink) => {
-      lk.dom = document.getElementById(`${this._id}_${lk.id}`) as any;
+      lk.dom = document.getElementById(`${this.id}_${lk.id}`) as any;
     });
 
     selectAll("g.links").lower();
 
     const path = links
       .append("path")
-        .attr("id", d => `${this._id}_p${d.id}`)
+        .attr("id", d => `${this.id}_p${d.id}`)
         .attr("class", "link")
         .attr("stroke", (d: any) => d.fill ? d.fill : d.nodeIn.fill)
         .attr("stroke-width", (d: TLink) => d.w)
@@ -322,7 +279,7 @@ export class Sankey {
       .selectAll("g.node")
       .data(this.nodes).enter()
       .append("g")
-        .attr("id", (d: TNode) => `${this._id}_${d.id}`)
+        .attr("id", (d: TNode) => `${this.id}_${d.id}`)
         .attr("class", (d: TNode) => "node" + (d.layer > 0 ? fade : ""))
         .attr("transform", (d: TNode) => {
           return this.orient === "horizontal"
@@ -338,13 +295,13 @@ export class Sankey {
         .on("click", event => this._nodeClickHandler(event));
 
     this.nodes.forEach((node: TNode) => {
-      node.dom = document.getElementById(`${this._id}_${node.id}`) as any;
+      node.dom = document.getElementById(`${this.id}_${node.id}`) as any;
     });
 
     select("g.nodes").raise();
 
     const rect = nodes.append("rect")
-      .attr("id", (d: TNode) => `${this._id}_r${d.id}`)
+      .attr("id", (d: TNode) => `${this.id}_r${d.id}`)
       .attr("class", "node")
       .attr("height", (d: TNode) => d.h + "px")
       .attr("width", (d: TNode) => d.w + "px")
@@ -523,7 +480,7 @@ export class Sankey {
             }
           });
           if (breakdown || (node === dt && node.linksIn.length === 0)) {
-            sum = this._scale(sum);
+            sum = this.scale(sum);
             sum = sum >= 0 ? sum : 0;
             const shadow = select(node.dom).select(".shadow");
   
@@ -553,11 +510,11 @@ export class Sankey {
   private _nodeSize(): Sankey {
     this.nodes.forEach((node: TNode) => {
       if (this.orient === "horizontal") {
-        node.h = Math.max(1, this._scale(node.value));
+        node.h = Math.max(1, this.scale(node.value));
         node.w = this.nodeSize;
       } else {
         node.h = this.nodeSize;
-        node.w = Math.max(1, this._scale(node.value));
+        node.w = Math.max(1, this.scale(node.value));
       }
     });
     return this;
@@ -623,7 +580,7 @@ export class Sankey {
 
     this.links.forEach((link: TLink) => {
       let src = 0, tgt = 0;
-      link.w = Math.max(1, this._scale(link.value));
+      link.w = Math.max(1, this.scale(link.value));
       if (!source.has(link.nodeIn.id)) {
         source.set(link.nodeIn.id, (this.orient === "horizontal") ? link.nodeIn.y : link.nodeIn.x);
       }
@@ -725,7 +682,7 @@ export class Sankey {
    */
   private _scaling(): Sankey {
     const rng: [number, number] = [0, this.orient === "horizontal" ? this.rh : this.rw];
-    this._scale = scaleLinear().domain(this._extent).range(rng);
+    this.scale = scaleLinear().domain(this._extent).range(rng);
     return this;
   }
 
