@@ -1,4 +1,4 @@
-import { pointer, select, selectAll } from "d3-selection";
+import { select, selectAll } from "d3-selection";
 import { scaleLinear } from "d3-scale";
 import { linkHorizontal, linkVertical } from "d3-shape";
 import { drag } from "d3-drag";

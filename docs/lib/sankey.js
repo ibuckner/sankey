@@ -971,7 +971,7 @@ var chart = (function (exports) {
     function center(a, x, lo, hi) {
       if (lo == null) lo = 0;
       if (hi == null) hi = a.length;
-      const i = left(a, x, lo, hi);
+      const i = left(a, x, lo, hi - 1);
       return i > lo && delta(a[i - 1], x) > -delta(a[i], x) ? i - 1 : i;
     }
 
@@ -982,8 +982,13 @@ var chart = (function (exports) {
     return (d, x) => ascending$1(f(d), x);
   }
 
-  var ascendingBisect = bisector(ascending$1);
-  var bisectRight = ascendingBisect.right;
+  function number(x) {
+    return x === null ? NaN : +x;
+  }
+
+  const ascendingBisect = bisector(ascending$1);
+  const bisectRight = ascendingBisect.right;
+  const bisectCenter = bisector(number).center;
 
   var e10 = Math.sqrt(50),
       e5 = Math.sqrt(10),
@@ -1623,13 +1628,13 @@ var chart = (function (exports) {
     };
   }
 
-  function constant$2(x) {
+  function constants(x) {
     return function() {
       return x;
     };
   }
 
-  function number(x) {
+  function number$1(x) {
     return +x;
   }
 
@@ -1642,7 +1647,7 @@ var chart = (function (exports) {
   function normalize(a, b) {
     return (b -= (a = +a))
         ? function(x) { return (x - a) / b; }
-        : constant$2(isNaN(b) ? NaN : 0.5);
+        : constants(isNaN(b) ? NaN : 0.5);
   }
 
   function clamper(a, b) {
@@ -1721,7 +1726,7 @@ var chart = (function (exports) {
     };
 
     scale.domain = function(_) {
-      return arguments.length ? (domain = Array.from(_, number), rescale()) : domain.slice();
+      return arguments.length ? (domain = Array.from(_, number$1), rescale()) : domain.slice();
     };
 
     scale.range = function(_) {
@@ -2303,7 +2308,7 @@ var chart = (function (exports) {
     }
   };
 
-  function constant$3(x) {
+  function constant$2(x) {
     return function constant() {
       return x;
     };
@@ -2350,11 +2355,11 @@ var chart = (function (exports) {
     };
 
     link.x = function(_) {
-      return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$3(+_), link) : x$1;
+      return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$2(+_), link) : x$1;
     };
 
     link.y = function(_) {
-      return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$3(+_), link) : y$1;
+      return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$2(+_), link) : y$1;
     };
 
     link.context = function(_) {
@@ -2500,7 +2505,7 @@ var chart = (function (exports) {
     }
   }
 
-  var constant$4 = x => () => x;
+  var constant$3 = x => () => x;
 
   function DragEvent(type, {
     sourceEvent,
@@ -2690,19 +2695,19 @@ var chart = (function (exports) {
     }
 
     drag.filter = function(_) {
-      return arguments.length ? (filter = typeof _ === "function" ? _ : constant$4(!!_), drag) : filter;
+      return arguments.length ? (filter = typeof _ === "function" ? _ : constant$3(!!_), drag) : filter;
     };
 
     drag.container = function(_) {
-      return arguments.length ? (container = typeof _ === "function" ? _ : constant$4(_), drag) : container;
+      return arguments.length ? (container = typeof _ === "function" ? _ : constant$3(_), drag) : container;
     };
 
     drag.subject = function(_) {
-      return arguments.length ? (subject = typeof _ === "function" ? _ : constant$4(_), drag) : subject;
+      return arguments.length ? (subject = typeof _ === "function" ? _ : constant$3(_), drag) : subject;
     };
 
     drag.touchable = function(_) {
-      return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$4(!!_), drag) : touchable;
+      return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$3(!!_), drag) : touchable;
     };
 
     drag.on = function() {
@@ -2902,7 +2907,7 @@ var chart = (function (exports) {
     querySelectorAll: function(selector) { return this._parent.querySelectorAll(selector); }
   };
 
-  function constant$5(x) {
+  function constant$4(x) {
     return function() {
       return x;
     };
@@ -2989,7 +2994,7 @@ var chart = (function (exports) {
         parents = this._parents,
         groups = this._groups;
 
-    if (typeof value !== "function") value = constant$5(value);
+    if (typeof value !== "function") value = constant$4(value);
 
     for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
       var parent = parents[j],
