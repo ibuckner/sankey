@@ -1003,16 +1003,18 @@ var chart = (function (exports) {
     if ((step = tickIncrement(start, stop, count)) === 0 || !isFinite(step)) return [];
 
     if (step > 0) {
-      start = Math.ceil(start / step);
-      stop = Math.floor(stop / step);
-      ticks = new Array(n = Math.ceil(stop - start + 1));
-      while (++i < n) ticks[i] = (start + i) * step;
+      let r0 = Math.round(start / step), r1 = Math.round(stop / step);
+      if (r0 * step < start) ++r0;
+      if (r1 * step > stop) --r1;
+      ticks = new Array(n = r1 - r0 + 1);
+      while (++i < n) ticks[i] = (r0 + i) * step;
     } else {
       step = -step;
-      start = Math.ceil(start * step);
-      stop = Math.floor(stop * step);
-      ticks = new Array(n = Math.ceil(stop - start + 1));
-      while (++i < n) ticks[i] = (start + i) / step;
+      let r0 = Math.round(start * step), r1 = Math.round(stop * step);
+      if (r0 / step < start) ++r0;
+      if (r1 / step > stop) --r1;
+      ticks = new Array(n = r1 - r0 + 1);
+      while (++i < n) ticks[i] = (r0 + i) / step;
     }
 
     if (reverse) ticks.reverse();
@@ -1714,7 +1716,7 @@ var chart = (function (exports) {
     }
 
     function scale(x) {
-      return isNaN(x = +x) ? unknown : (output || (output = piecewise(domain.map(transform), range, interpolate$1)))(transform(clamp(x)));
+      return x == null || isNaN(x = +x) ? unknown : (output || (output = piecewise(domain.map(transform), range, interpolate$1)))(transform(clamp(x)));
     }
 
     scale.invert = function(y) {
@@ -3683,6 +3685,69 @@ var chart = (function (exports) {
 
   var schemePaired = colors("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
 
+  class Basechart {
+      constructor(options) {
+          this.container = document.querySelector("body");
+          this.h = 200;
+          this.id = "basechart";
+          this.locale = "en-GB";
+          this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
+          this.rh = 160;
+          this.rw = 150;
+          this.scale = {};
+          this.w = 200;
+          if (options.margin !== undefined) {
+              let m = options.margin;
+              m.left = isNaN(m.left) ? 0 : m.left;
+              m.right = isNaN(m.right) ? 0 : m.right;
+              m.top = isNaN(m.top) ? 0 : m.top;
+              m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
+              this.margin = m;
+          }
+          if (options.locale !== undefined) {
+              this.locale = options.locale;
+          }
+          if (options.container !== undefined) {
+              this.container = options.container;
+          }
+          const box = this.container.getBoundingClientRect();
+          this.h = box.height;
+          this.w = box.width;
+          this.rh = this.h - this.margin.top - this.margin.bottom;
+          this.rw = this.w - this.margin.left - this.margin.right;
+          this.scale.color = ordinal(schemePaired);
+          this.scale.x = (x) => x;
+          this.scale.y = (y) => y;
+      }
+      /**
+       * Clears selection from chart
+       */
+      clearSelection() {
+          selectAll(".selected").classed("selected", false);
+          selectAll(".fade").classed("fade", false);
+      }
+      /**
+       * Removes this chart from the DOM
+       */
+      destroy() {
+          select(this.container).select("svg").remove();
+          return this;
+      }
+      draw() {
+          if (select(this.container).select("svg").empty()) {
+              let sg = svg(this.container, {
+                  height: this.h,
+                  margin: this.margin,
+                  width: this.w
+              });
+              const s = select(sg)
+                  .on("click", () => this.clearSelection());
+              this.canvas = s.select(".canvas");
+          }
+          return this;
+      }
+  }
+
   var resizeObservers = [];
 
   var hasActiveObservations = function () {
@@ -3716,6 +3781,17 @@ var chart = (function (exports) {
       ResizeObserverBoxOptions["DEVICE_PIXEL_CONTENT_BOX"] = "device-pixel-content-box";
   })(ResizeObserverBoxOptions || (ResizeObserverBoxOptions = {}));
 
+  var freeze = function (obj) { return Object.freeze(obj); };
+
+  var ResizeObserverSize = (function () {
+      function ResizeObserverSize(inlineSize, blockSize) {
+          this.inlineSize = inlineSize;
+          this.blockSize = blockSize;
+          freeze(this);
+      }
+      return ResizeObserverSize;
+  }());
+
   var DOMRectReadOnly = (function () {
       function DOMRectReadOnly(x, y, width, height) {
           this.x = x;
@@ -3726,7 +3802,7 @@ var chart = (function (exports) {
           this.left = this.x;
           this.bottom = this.top + this.height;
           this.right = this.left + this.width;
-          return Object.freeze(this);
+          return freeze(this);
       }
       DOMRectReadOnly.prototype.toJSON = function () {
           var _a = this, x = _a.x, y = _a.y, top = _a.top, right = _a.right, bottom = _a.bottom, left = _a.left, width = _a.width, height = _a.height;
@@ -3781,12 +3857,9 @@ var chart = (function (exports) {
       if (inlineSize === void 0) { inlineSize = 0; }
       if (blockSize === void 0) { blockSize = 0; }
       if (switchSizes === void 0) { switchSizes = false; }
-      return Object.freeze({
-          inlineSize: (switchSizes ? blockSize : inlineSize) || 0,
-          blockSize: (switchSizes ? inlineSize : blockSize) || 0
-      });
+      return new ResizeObserverSize((switchSizes ? blockSize : inlineSize) || 0, (switchSizes ? inlineSize : blockSize) || 0);
   };
-  var zeroBoxes = Object.freeze({
+  var zeroBoxes = freeze({
       devicePixelContentBoxSize: size(),
       borderBoxSize: size(),
       contentBoxSize: size(),
@@ -3827,7 +3900,7 @@ var chart = (function (exports) {
       var contentHeight = svg ? svg.height : parseDimension(cs.height) - heightReduction - horizontalScrollbarThickness;
       var borderBoxWidth = contentWidth + horizontalPadding + verticalScrollbarThickness + horizontalBorderArea;
       var borderBoxHeight = contentHeight + verticalPadding + horizontalScrollbarThickness + verticalBorderArea;
-      var boxes = Object.freeze({
+      var boxes = freeze({
           devicePixelContentBoxSize: size(Math.round(contentWidth * devicePixelRatio), Math.round(contentHeight * devicePixelRatio), switchSizes),
           borderBoxSize: size(borderBoxWidth, borderBoxHeight, switchSizes),
           contentBoxSize: size(contentWidth, contentHeight, switchSizes),
@@ -3853,9 +3926,9 @@ var chart = (function (exports) {
           var boxes = calculateBoxSizes(target);
           this.target = target;
           this.contentRect = boxes.contentRect;
-          this.borderBoxSize = [boxes.borderBoxSize];
-          this.contentBoxSize = [boxes.contentBoxSize];
-          this.devicePixelContentBoxSize = [boxes.devicePixelContentBoxSize];
+          this.borderBoxSize = freeze([boxes.borderBoxSize]);
+          this.contentBoxSize = freeze([boxes.contentBoxSize]);
+          this.devicePixelContentBoxSize = freeze([boxes.devicePixelContentBoxSize]);
       }
       return ResizeObserverEntry;
   }());
@@ -4234,69 +4307,6 @@ var chart = (function (exports) {
       canvas.setAttributeNS(null, "transform", `translate(${options.margin.left},${options.margin.top})`);
       svg.appendChild(canvas);
       return svg;
-  }
-
-  class Basechart {
-      constructor(options) {
-          this.container = document.querySelector("body");
-          this.h = 200;
-          this.id = "basechart";
-          this.locale = "en-GB";
-          this.margin = { bottom: 20, left: 20, right: 30, top: 20 };
-          this.rh = 160;
-          this.rw = 150;
-          this.scale = {};
-          this.w = 200;
-          if (options.margin !== undefined) {
-              let m = options.margin;
-              m.left = isNaN(m.left) ? 0 : m.left;
-              m.right = isNaN(m.right) ? 0 : m.right;
-              m.top = isNaN(m.top) ? 0 : m.top;
-              m.bottom = isNaN(m.bottom) ? 0 : m.bottom;
-              this.margin = m;
-          }
-          if (options.locale !== undefined) {
-              this.locale = options.locale;
-          }
-          if (options.container !== undefined) {
-              this.container = options.container;
-          }
-          const box = this.container.getBoundingClientRect();
-          this.h = box.height;
-          this.w = box.width;
-          this.rh = this.h - this.margin.top - this.margin.bottom;
-          this.rw = this.w - this.margin.left - this.margin.right;
-          this.scale.color = ordinal(schemePaired);
-          this.scale.x = (x) => x;
-          this.scale.y = (y) => y;
-      }
-      /**
-       * Clears selection from chart
-       */
-      clearSelection() {
-          selectAll(".selected").classed("selected", false);
-          selectAll(".fade").classed("fade", false);
-      }
-      /**
-       * Removes this chart from the DOM
-       */
-      destroy() {
-          select(this.container).select("svg").remove();
-          return this;
-      }
-      draw() {
-          if (select(this.container).select("svg").empty()) {
-              let sg = svg(this.container, {
-                  height: this.h,
-                  margin: this.margin,
-                  width: this.w
-              });
-              const s = select(sg)
-                  .on("click", () => this.clearSelection());
-              this.canvas = s.select(".canvas");
-          }
-          return this;
-      }
   }
 
   class Sankey extends Basechart {
